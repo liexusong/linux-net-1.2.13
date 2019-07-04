@@ -1,9 +1,9 @@
 /*
- *	IP firewalling code. This is taken from 4.4BSD. Please note the 
+ *	IP firewalling code. This is taken from 4.4BSD. Please note the
  *	copyright message below. As per the GPL it must be maintained
  *	and the licenses thus do not conflict. While this port is subject
- *	to the GPL I also place my modifications under the original 
- *	license in recognition of the original copyright. 
+ *	to the GPL I also place my modifications under the original
+ *	license in recognition of the original copyright.
  *				-- Alan Cox.
  *
  *	Ported from BSD to Linux,
@@ -67,13 +67,13 @@
  *	Implement IP packet firewall
  */
 
-#ifdef CONFIG_IPFIREWALL_DEBUG 
+#ifdef CONFIG_IPFIREWALL_DEBUG
 #define dprintf1(a)		printk(a)
 #define dprintf2(a1,a2)		printk(a1,a2)
 #define dprintf3(a1,a2,a3)	printk(a1,a2,a3)
 #define dprintf4(a1,a2,a3,a4)	printk(a1,a2,a3,a4)
 #else
-#define dprintf1(a)	
+#define dprintf1(a)
 #define dprintf2(a1,a2)
 #define dprintf3(a1,a2,a3)
 #define dprintf4(a1,a2,a3,a4)
@@ -87,7 +87,7 @@
 #ifdef IPFIREWALL_DEBUG
 #define dprint_ip(a)	print_ip(a)
 #else
-#define dprint_ip(a)	
+#define dprint_ip(a)
 #endif
 
 #ifdef CONFIG_IP_FIREWALL
@@ -113,18 +113,18 @@ extern inline int port_match(unsigned short *portptr,int nports,unsigned short p
 {
 	if (!nports)
 		return 1;
-	if ( range_flag ) 
+	if ( range_flag )
 	{
-		if ( portptr[0] <= port && port <= portptr[1] ) 
+		if ( portptr[0] <= port && port <= portptr[1] )
 		{
 			return( 1 );
 		}
 		nports -= 2;
 		portptr += 2;
 	}
-	while ( nports-- > 0 ) 
+	while ( nports-- > 0 )
 	{
-		if ( *portptr++ == port ) 
+		if ( *portptr++ == port )
 		{
 			return( 1 );
 		}
@@ -162,11 +162,11 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 	 *	accepts anything giving you a time window while
 	 *	flushing and rebuilding the tables.
 	 */
-	 
-	src = ip->saddr;
-	dst = ip->daddr;
 
-	/* 
+	src = ip->saddr;  // 来源IP
+	dst = ip->daddr;  // 目标IP
+
+	/*
 	 *	This way we handle fragmented packets.
 	 *	we ignore all fragments but the first one
 	 *	so the whole packet can't be reassembled.
@@ -195,9 +195,9 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 	 *	per device. We have a device per address with dummy
 	 *	devices instead.
 	 */
-	 
+
 	dprintf1("Packet ");
-	switch(ip->protocol) 
+	switch(ip->protocol)
 	{
 		case IPPROTO_TCP:
 			dprintf1("TCP ");
@@ -230,7 +230,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 			break;
 	}
 	dprint_ip(ip->saddr);
-	
+
 	if (ip->protocol==IPPROTO_TCP || ip->protocol==IPPROTO_UDP)
 		/* This will print 0 when it is not the first fragment! */
 		dprintf2(":%d ", src_port);
@@ -240,7 +240,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		dprintf2(":%d ",dst_port);
 	dprintf1("\n");
 
-	for (f=chain;f;f=f->fw_next) 
+	for (f=chain;f;f=f->fw_next)
 	{
 		/*
 		 *	This is a bit simpler as we don't have to walk
@@ -275,7 +275,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		if (match)
 		{
 			/*
-			 *	Look for a VIA match 
+			 *	Look for a VIA match
 			 */
 			if(f->fw_via.s_addr && rif)
 			{
@@ -288,21 +288,21 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		}
 		else
 			continue;
-		
+
 		/*
 		 *	Ok the chain addresses match.
 		 */
 
 		f_prt=f->fw_flg&IP_FW_F_KIND;
-		if (f_prt!=IP_FW_F_ALL) 
+		if (f_prt!=IP_FW_F_ALL)
 		{
 			/*
-			 * This is actually buggy as if you set SYN flag 
-			 * on UDP or ICMP firewall it will never work,but 
+			 * This is actually buggy as if you set SYN flag
+			 * on UDP or ICMP firewall it will never work,but
 			 * actually it is a concern of software which sets
 			 * firewall entries.
 			 */
-			 
+
 			 if((f->fw_flg&IP_FW_F_TCPSYN) && notcpsyn)
 			 	continue;
 			/*
@@ -312,7 +312,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 
 			if(prt!=f_prt)
 				continue;
-				
+
 			if(!(prt==IP_FW_F_ICMP || ((match & 0x01) &&
 				port_match(&f->fw_pts[0], f->fw_nsp, src_port,
 					f->fw_flg&IP_FW_F_SRNG) &&
@@ -365,7 +365,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 				printk(":%d",dst_port);
 			printk("\n");
 		}
-#endif		
+#endif
 		if (opt != 2) {
 			f->fw_bcnt+=ntohs(ip->tot_len);
 			f->fw_pcnt++;
@@ -373,7 +373,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		if (opt != 1)
 			break;
 	} /* Loop */
-	
+
 	if(opt == 1)
 		return 0;
 
@@ -398,7 +398,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 static void zero_fw_chain(struct ip_fw *chainptr)
 {
 	struct ip_fw *ctmp=chainptr;
-	while(ctmp) 
+	while(ctmp)
 	{
 		ctmp->fw_pcnt=0L;
 		ctmp->fw_bcnt=0L;
@@ -411,7 +411,7 @@ static void free_fw_chain(struct ip_fw *volatile* chainptr)
 	unsigned long flags;
 	save_flags(flags);
 	cli();
-	while ( *chainptr != NULL ) 
+	while ( *chainptr != NULL )
 	{
 		struct ip_fw *ftmp;
 		ftmp = *chainptr;
@@ -431,15 +431,15 @@ static int add_to_chain(struct ip_fw *volatile* chainptr, struct ip_fw *frwl)
 	unsigned long flags;
 	unsigned long m_src_mask,m_dst_mask;
 	unsigned long n_sa,n_da,o_sa,o_da,o_sm,o_dm,n_sm,n_dm;
-	unsigned short n_sr,n_dr,o_sr,o_dr; 
+	unsigned short n_sr,n_dr,o_sr,o_dr;
 	unsigned short oldkind,newkind;
 	int addb4=0;
 	int n_o,n_n;
-	
+
 	save_flags(flags);
-	
+
 	ftmp = kmalloc( sizeof(struct ip_fw), GFP_ATOMIC );
-	if ( ftmp == NULL ) 
+	if ( ftmp == NULL )
 	{
 #ifdef DEBUG_CONFIG_IP_FIREWALL
 		printf("ip_fw_ctl:  malloc said no\n");
@@ -448,14 +448,14 @@ static int add_to_chain(struct ip_fw *volatile* chainptr, struct ip_fw *frwl)
 	}
 
 	memcpy(ftmp, frwl, sizeof( struct ip_fw ) );
-	
+
 	ftmp->fw_pcnt=0L;
 	ftmp->fw_bcnt=0L;
 
 	ftmp->fw_next = NULL;
 
 	cli();
-	
+
 	if (*chainptr==NULL)
 	{
 		*chainptr=ftmp;
@@ -463,15 +463,15 @@ static int add_to_chain(struct ip_fw *volatile* chainptr, struct ip_fw *frwl)
 	else
 	{
 		chtmp_prev=NULL;
-		for (chtmp=*chainptr;chtmp!=NULL;chtmp=chtmp->fw_next) 
+		for (chtmp=*chainptr;chtmp!=NULL;chtmp=chtmp->fw_next)
 		{
 			addb4=0;
 			newkind=ftmp->fw_flg & IP_FW_F_KIND;
 			oldkind=chtmp->fw_flg & IP_FW_F_KIND;
-	
-			if (newkind!=IP_FW_F_ALL 
+
+			if (newkind!=IP_FW_F_ALL
 				&&  oldkind!=IP_FW_F_ALL
-				&&  oldkind!=newkind) 
+				&&  oldkind!=newkind)
 			{
 				chtmp_prev=chtmp;
 				continue;
@@ -495,15 +495,15 @@ static int add_to_chain(struct ip_fw *volatile* chainptr, struct ip_fw *frwl)
 			m_src_mask = o_sm & n_sm;
 			m_dst_mask = o_dm & n_dm;
 
-			if ((o_sa & m_src_mask) == (n_sa & m_src_mask)) 
+			if ((o_sa & m_src_mask) == (n_sa & m_src_mask))
 			{
-				if (n_sm > o_sm) 
+				if (n_sm > o_sm)
 					addb4++;
-				if (n_sm < o_sm) 
+				if (n_sm < o_sm)
 					addb4--;
 			}
-		
-			if ((o_da & m_dst_mask) == (n_da & m_dst_mask)) 
+
+			if ((o_da & m_dst_mask) == (n_da & m_dst_mask))
 			{
 				if (n_dm > o_dm)
 					addb4++;
@@ -518,9 +518,9 @@ static int add_to_chain(struct ip_fw *volatile* chainptr, struct ip_fw *frwl)
 					oldkind==IP_FW_F_ALL)
 					addb4++;
 				if (newkind==oldkind && (oldkind==IP_FW_F_TCP
-					||  oldkind==IP_FW_F_UDP)) 
+					||  oldkind==IP_FW_F_UDP))
 				{
-	
+
 					/*
 					 * 	Here the main idea is to check the size
 					 * 	of port range which the frwl covers
@@ -532,43 +532,43 @@ static int add_to_chain(struct ip_fw *volatile* chainptr, struct ip_fw *frwl)
 					 *	of ports.
 					 */
 
-					if (ftmp->fw_flg & IP_FW_F_SRNG) 
+					if (ftmp->fw_flg & IP_FW_F_SRNG)
 						n_sr=ftmp->fw_pts[1]-ftmp->fw_pts[0];
-					else 
+					else
 						n_sr=(ftmp->fw_nsp)?
 							ftmp->fw_nsp : 0xFFFF;
-						
-					if (chtmp->fw_flg & IP_FW_F_SRNG) 
+
+					if (chtmp->fw_flg & IP_FW_F_SRNG)
 						o_sr=chtmp->fw_pts[1]-chtmp->fw_pts[0];
-					else 
+					else
 						o_sr=(chtmp->fw_nsp)?chtmp->fw_nsp : 0xFFFF;
 
 					if (n_sr<o_sr)
 						addb4++;
 					if (n_sr>o_sr)
 						addb4--;
-					
+
 					n_n=ftmp->fw_nsp;
 					n_o=chtmp->fw_nsp;
-	
+
 					/*
 					 * Actually this cannot happen as the frwl control
 					 * procedure checks for number of ports in source and
 					 * destination range but we will try to be more safe.
 					 */
-					 
+
 					if ((n_n>(IP_FW_MAX_PORTS-2)) ||
 						(n_o>(IP_FW_MAX_PORTS-2)))
 						goto skip_check;
 
-					if (ftmp->fw_flg & IP_FW_F_DRNG) 
+					if (ftmp->fw_flg & IP_FW_F_DRNG)
 					       n_dr=ftmp->fw_pts[n_n+1]-ftmp->fw_pts[n_n];
-					else 
+					else
 					       n_dr=(ftmp->fw_ndp)? ftmp->fw_ndp : 0xFFFF;
 
-					if (chtmp->fw_flg & IP_FW_F_DRNG) 
+					if (chtmp->fw_flg & IP_FW_F_DRNG)
 						o_dr=chtmp->fw_pts[n_o+1]-chtmp->fw_pts[n_o];
-					else 
+					else
 						o_dr=(chtmp->fw_ndp)? chtmp->fw_ndp : 0xFFFF;
 					if (n_dr<o_dr)
 						addb4++;
@@ -581,14 +581,14 @@ skip_check:
 						!(chtmp->fw_via.s_addr))
 					addb4++;
 			}
-			if (addb4>0) 
+			if (addb4>0)
 			{
-				if (chtmp_prev) 
+				if (chtmp_prev)
 				{
-					chtmp_prev->fw_next=ftmp; 
+					chtmp_prev->fw_next=ftmp;
 					ftmp->fw_next=chtmp;
-				} 
-				else 
+				}
+				else
 				{
 					*chainptr=ftmp;
 					ftmp->fw_next=chtmp;
@@ -599,7 +599,7 @@ skip_check:
 			chtmp_prev=chtmp;
 		}
 	}
-	
+
 	if (chtmp_prev)
 		chtmp_prev->fw_next=ftmp;
 	else
@@ -617,10 +617,10 @@ static int del_from_chain(struct ip_fw *volatile*chainptr, struct ip_fw *frwl)
 
 	save_flags(flags);
 	cli();
-	
+
 	ftmp=*chainptr;
 
-	if ( ftmp == NULL ) 
+	if ( ftmp == NULL )
 	{
 #ifdef DEBUG_CONFIG_IP_FIREWALL
 		printk("ip_fw_ctl:  chain is empty\n");
@@ -635,7 +635,7 @@ static int del_from_chain(struct ip_fw *volatile*chainptr, struct ip_fw *frwl)
 	while( ftmp != NULL )
 	{
 		matches=1;
-	     if (ftmp->fw_src.s_addr!=frwl->fw_src.s_addr 
+	     if (ftmp->fw_src.s_addr!=frwl->fw_src.s_addr
 		     ||  ftmp->fw_dst.s_addr!=frwl->fw_dst.s_addr
 		     ||  ftmp->fw_smsk.s_addr!=frwl->fw_smsk.s_addr
 		     ||  ftmp->fw_dmsk.s_addr!=frwl->fw_dmsk.s_addr
@@ -664,10 +664,10 @@ static int del_from_chain(struct ip_fw *volatile*chainptr, struct ip_fw *frwl)
         		}
       			else
       			{
-      				*chainptr=ftmp->fw_next; 
+      				*chainptr=ftmp->fw_next;
 	 			kfree_s(ftmp,sizeof(*ftmp));
 				ftmp=*chainptr;
-			}       
+			}
 		}
 		else
 		{
@@ -705,7 +705,7 @@ struct ip_fw *check_ipfw_struct(struct ip_fw *frwl, int len)
 		return(NULL);
 	}
 
-	if ( (frwl->fw_flg & IP_FW_F_SRNG) && frwl->fw_nsp < 2 ) 
+	if ( (frwl->fw_flg & IP_FW_F_SRNG) && frwl->fw_nsp < 2 )
 	{
 #ifdef DEBUG_CONFIG_IP_FIREWALL
 		printk("ip_fw_ctl: src range set but n_src_p=%d\n",
@@ -714,7 +714,7 @@ struct ip_fw *check_ipfw_struct(struct ip_fw *frwl, int len)
 		return(NULL);
 	}
 
-	if ( (frwl->fw_flg & IP_FW_F_DRNG) && frwl->fw_ndp < 2 ) 
+	if ( (frwl->fw_flg & IP_FW_F_DRNG) && frwl->fw_ndp < 2 )
 	{
 #ifdef DEBUG_CONFIG_IP_FIREWALL
 		printk("ip_fw_ctl: dst range set but n_dst_p=%d\n",
@@ -723,7 +723,7 @@ struct ip_fw *check_ipfw_struct(struct ip_fw *frwl, int len)
 		return(NULL);
 	}
 
-	if ( frwl->fw_nsp + frwl->fw_ndp > IP_FW_MAX_PORTS ) 
+	if ( frwl->fw_nsp + frwl->fw_ndp > IP_FW_MAX_PORTS )
 	{
 #ifdef DEBUG_CONFIG_IP_FIREWALL
 		printk("ip_fw_ctl: too many ports (%d+%d)\n",
@@ -752,7 +752,7 @@ int ip_acct_ctl(int stage, void *m, int len)
 	{
 		free_fw_chain(&ip_acct_chain);
 		return(0);
-	}  
+	}
 	if ( stage == IP_ACCT_ZERO )
 	{
 		zero_fw_chain(ip_acct_chain);
@@ -767,7 +767,7 @@ int ip_acct_ctl(int stage, void *m, int len)
 		if (!(frwl=check_ipfw_struct(m,len)))
 			return (EINVAL);
 
-		switch (stage) 
+		switch (stage)
 		{
 			case IP_ACCT_ADD:
 				return( add_to_chain(&ip_acct_chain,frwl));
@@ -799,25 +799,25 @@ int ip_fw_ctl(int stage, void *m, int len)
 	{
 		free_fw_chain(&ip_fw_blk_chain);
 		return(0);
-	}  
+	}
 
 	if ( stage == IP_FW_FLUSH_FWD )
 	{
 		free_fw_chain(&ip_fw_fwd_chain);
 		return(0);
-	}  
+	}
 
 	if ( stage == IP_FW_ZERO_BLK )
 	{
 		zero_fw_chain(ip_fw_blk_chain);
 		return(0);
-	}  
+	}
 
 	if ( stage == IP_FW_ZERO_FWD )
 	{
 		zero_fw_chain(ip_fw_fwd_chain);
 		return(0);
-	}  
+	}
 
 	if ( stage == IP_FW_POLICY_BLK || stage == IP_FW_POLICY_FWD )
 	{
@@ -866,7 +866,7 @@ int ip_fw_ctl(int stage, void *m, int len)
 	                ip_fw_blk_policy : ip_fw_fwd_policy, 2 )) > 0
 		   )
 			return(0);
-	    	else if (ret == -1)	
+	    	else if (ret == -1)
 			return(ECONNREFUSED);
 		else
 			return(ETIMEDOUT);
@@ -885,8 +885,8 @@ int ip_fw_ctl(int stage, void *m, int len)
 		frwl=check_ipfw_struct(m,len);
 		if (frwl==NULL)
 			return (EINVAL);
-		
-		switch (stage) 
+
+		switch (stage)
 		{
 			case IP_FW_ADD_BLK:
 				return(add_to_chain(&ip_fw_blk_chain,frwl));
@@ -894,7 +894,7 @@ int ip_fw_ctl(int stage, void *m, int len)
 				return(add_to_chain(&ip_fw_fwd_chain,frwl));
 			case IP_FW_DEL_BLK:
 				return(del_from_chain(&ip_fw_blk_chain,frwl));
-			case IP_FW_DEL_FWD: 
+			case IP_FW_DEL_FWD:
 				return(del_from_chain(&ip_fw_fwd_chain,frwl));
 			default:
 			/*
@@ -905,7 +905,7 @@ int ip_fw_ctl(int stage, void *m, int len)
 #endif
 				return(EINVAL);
 		}
-	} 
+	}
 
 #ifdef DEBUG_CONFIG_IP_FIREWALL
 	printf("ip_fw_ctl:  unknown request %d\n",stage);
@@ -923,7 +923,7 @@ static int ip_chain_procinfo(int stage, char *buffer, char **start,
 	struct ip_fw *i;
 	unsigned long flags;
 	int len, p;
-	
+
 
 	switch(stage)
 	{
@@ -954,7 +954,7 @@ static int ip_chain_procinfo(int stage, char *buffer, char **start,
 
 	save_flags(flags);
 	cli();
-	
+
 	while(i!=NULL)
 	{
 		len+=sprintf(buffer+len,"%08lX/%08lX->%08lX/%08lX %08lX %X ",
@@ -987,7 +987,7 @@ static int ip_chain_procinfo(int stage, char *buffer, char **start,
 	*start=buffer+(offset-begin);
 	len-=(offset-begin);
 	if(len>length)
-		len=length;	
+		len=length;
 	return len;
 }
 #endif

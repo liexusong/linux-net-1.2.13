@@ -91,7 +91,7 @@ struct arp_table
 	/*
 	 *	The following entries are only used for unresolved hw addresses.
 	 */
-	
+
 	struct timer_list		timer;			/* expire timer 		*/
 	int				retries;		/* remaining retries	 	*/
 	struct sk_buff_head		skb;			/* list of queued packets 	*/
@@ -137,7 +137,7 @@ enum proxy {
 };
 
 /* Forward declarations. */
-static void arp_check_expire (unsigned long);  
+static void arp_check_expire (unsigned long);
 static struct arp_table *arp_lookup(unsigned long paddr, enum proxy proxy);
 
 
@@ -162,9 +162,9 @@ static struct timer_list arp_timer =
 
 #define ARP_TABLE_SIZE  16
 
-/* The ugly +1 here is to cater for proxy entries. They are put in their 
+/* The ugly +1 here is to cater for proxy entries. They are put in their
    own list for efficiency of lookup. If you don't want to find a proxy
-   entry then don't look in the last entry, otherwise do 
+   entry then don't look in the last entry, otherwise do
 */
 
 #define FULL_ARP_TABLE_SIZE (ARP_TABLE_SIZE+1)
@@ -256,19 +256,19 @@ static void arp_release_entry(struct arp_table *entry)
 /*
  *	Purge a device from the ARP queue
  */
- 
+
 int arp_device_event(unsigned long event, void *ptr)
 {
 	struct device *dev=ptr;
 	int i;
 	unsigned long flags;
-	
+
 	if(event!=NETDEV_DOWN)
 		return NOTIFY_DONE;
 	/*
 	 *	This is a bit OTT - maybe we need some arp semaphores instead.
 	 */
-	 
+
 	save_flags(flags);
 	cli();
 	for (i = 0; i < FULL_ARP_TABLE_SIZE; i++)
@@ -298,8 +298,8 @@ int arp_device_event(unsigned long event, void *ptr)
  *	message.
  */
 
-void arp_send(int type, int ptype, unsigned long dest_ip, 
-	      struct device *dev, unsigned long src_ip, 
+void arp_send(int type, int ptype, unsigned long dest_ip,
+	      struct device *dev, unsigned long src_ip,
 	      unsigned char *dest_hw, unsigned char *src_hw)
 {
 	struct sk_buff *skb;
@@ -309,14 +309,14 @@ void arp_send(int type, int ptype, unsigned long dest_ip,
 	/*
 	 *	No arp on this interface.
 	 */
-	
+
 	if(dev->flags&IFF_NOARP)
 		return;
 
 	/*
 	 *	Allocate a buffer
 	 */
-	
+
 	skb = alloc_skb(sizeof(struct arphdr)+ 2*(dev->addr_len+4)
 				+ dev->hard_header_len, GFP_ATOMIC);
 	if (skb == NULL)
@@ -384,7 +384,7 @@ static void arp_expire_request (unsigned long arg)
 	 *	small chance, that this entry has just been resolved by an incoming
 	 *	packet. This is the only race condition, but it is handled...
 	 */
-	
+
 	if (entry->flags & ATF_COM)
 	{
 		restore_flags(flags);
@@ -401,7 +401,7 @@ static void arp_expire_request (unsigned long arg)
 		entry->timer.expires = ARP_RES_TIME;
 		add_timer(&entry->timer);
 		restore_flags(flags);
-		arp_send(ARPOP_REQUEST, ETH_P_ARP, ip, dev, dev->pa_addr, 
+		arp_send(ARPOP_REQUEST, ETH_P_ARP, ip, dev, dev->pa_addr,
 			 NULL, dev->dev_addr);
 		return;
 	}
@@ -455,7 +455,7 @@ static void arp_send_q(struct arp_table *entry, unsigned char *hw_dest)
 	/*
 	 *	Empty the entire queue, building its data up ready to send
 	 */
-	
+
 	if(!(entry->flags&ATF_COM))
 	{
 		printk("arp_send_q: incomplete entry for %s\n",
@@ -464,7 +464,7 @@ static void arp_send_q(struct arp_table *entry, unsigned char *hw_dest)
 	}
 
 	save_flags(flags);
-	
+
 	cli();
 	while((skb = skb_dequeue(&entry->skb)) != NULL)
 	{
@@ -549,8 +549,8 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 /*
  *	We shouldn't use this type conversion. Check later.
  */
-	
-	struct arphdr *arp = (struct arphdr *)skb->h.raw;
+
+	struct arphdr *arp = (struct arphdr *)skb->h.raw; // ARP头部
 	unsigned char *arp_ptr= (unsigned char *)(arp+1);
 	struct arp_table *entry;
 	struct arp_table *proxy_entry;
@@ -565,10 +565,10 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
  *	of the device.  Similarly, the hardware types should match.  The
  *	device should be ARP-able.  Also, if pln is not 4, then the lookup
  *	is not from an IP number.  We can't currently handle this, so toss
- *	it. 
- */  
-	if (arp->ar_hln != dev->addr_len    || 
-     		dev->type != ntohs(arp->ar_hrd) || 
+ *	it.
+ */
+	if (arp->ar_hln != dev->addr_len    ||
+     	dev->type != ntohs(arp->ar_hrd) ||
 		dev->flags & IFF_NOARP          ||
 		arp->ar_pln != 4)
 	{
@@ -578,7 +578,7 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 /*
  *	Another test.
- *	The logic here is that the protocol being looked up by arp should 
+ *	The logic here is that the protocol being looked up by arp should
  *	match the protocol the device speaks.  If it doesn't, there is a
  *	problem, so toss the packet.
  */
@@ -615,18 +615,18 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	hlen  = dev->addr_len;
 	htype = dev->type;
 
-	sha=arp_ptr;
+	sha=arp_ptr;                   /* sender hardware address */
 	arp_ptr+=hlen;
-	memcpy(&sip,arp_ptr,4);
+	memcpy(&sip,arp_ptr,4);        /* sender IP address	*/
 	arp_ptr+=4;
-	tha=arp_ptr;
+	tha=arp_ptr;                   /* target hardware address */
 	arp_ptr+=hlen;
-	memcpy(&tip,arp_ptr,4);
-  
-/* 
+	memcpy(&tip,arp_ptr,4);        /* target IP address */
+
+/*
  *	Check for bad requests for 127.0.0.1.  If this is one such, delete it.
  */
-	if(tip == INADDR_LOOPBACK)
+	if(tip == INADDR_LOOPBACK) // 本地IP地址不能使用这个协议
 	{
 		kfree_skb(skb, FREE_READ);
 		return 0;
@@ -636,40 +636,41 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
  *  Process entry.  The idea here is we want to send a reply if it is a
  *  request for us or if it is a request for someone else that we hold
  *  a proxy for.  We want to add an entry to our cache if it is a reply
- *  to us or if it is a request for our address.  
- *  (The assumption for this last is that if someone is requesting our 
- *  address, they are probably intending to talk to us, so it saves time 
- *  if we cache their address.  Their address is also probably not in 
+ *  to us or if it is a request for our address.
+ *  (The assumption for this last is that if someone is requesting our
+ *  address, they are probably intending to talk to us, so it saves time
+ *  if we cache their address.  Their address is also probably not in
  *  our cache, since ours is not in their cache.)
- * 
+ *
  *  Putting this another way, we only care about replies if they are to
  *  us, in which case we add them to the cache.  For requests, we care
  *  about those for us and those for our proxies.  We reply to both,
- *  and in the case of requests for us we add the requester to the arp 
+ *  and in the case of requests for us we add the requester to the arp
  *  cache.
  */
 
 	addr_hint = ip_chk_addr(tip);
 
-	if(arp->ar_op == htons(ARPOP_REPLY))
+	if(arp->ar_op == htons(ARPOP_REPLY)) // 如果是ARP回复
 	{
-		if(addr_hint!=IS_MYADDR)
+		if(addr_hint!=IS_MYADDR) // 如果不是发送给我们, 那么就忽略这个包
 		{
-/* 
- *	Replies to other machines get tossed. 
+/*
+ *	Replies to other machines get tossed.
  */
 			kfree_skb(skb, FREE_READ);
 			return 0;
 		}
 /*
- *	Fall through to code below that adds sender to cache. 
+ *	Fall through to code below that adds sender to cache.
  */
 	}
 	else
-	{ 
-/* 
- * 	It is now an arp request 
+	{
+/*
+ * 	It is now an arp request
  */
+		// 如果是一个ARP请求
 /*
  * Only reply for the real device address or when it's in our proxy tables
  */
@@ -718,6 +719,7 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 /*
  * 	To get here, it must be an arp request for us.  We need to reply.
  */
+			// 回复ARP请求
 			arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,dev->dev_addr);
 		}
 	}
@@ -725,7 +727,7 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 /*
  * Now all replies are handled.  Next, anything that falls through to here
- * needs to be added to the arp cache, or have its entry updated if it is 
+ * needs to be added to the arp cache, or have its entry updated if it is
  * there.
  */
 
@@ -752,9 +754,9 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 			del_timer(&entry->timer);
 			entry->flags |= ATF_COM;
 			sti();
-/* 
- *	Send out waiting packets. We might have problems, if someone is 
- *	manually removing entries right now -- entry might become invalid 
+/*
+ *	Send out waiting packets. We might have problems, if someone is
+ *	manually removing entries right now -- entry might become invalid
  *	underneath us.
  */
 			arp_send_q(entry, sha);
@@ -779,7 +781,7 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 			return 0;
 		}
 
-                entry->mask = DEF_ARP_NETMASK;
+		entry->mask = DEF_ARP_NETMASK;
 		entry->ip = sip;
 		entry->hlen = hlen;
 		entry->htype = htype;
@@ -813,7 +815,7 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 	unsigned long hash;
 #ifdef CONFIG_IP_MULTICAST
 	unsigned long taddr;
-#endif	
+#endif
 
 	switch (ip_chk_addr(paddr))
 	{
@@ -841,7 +843,7 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 		 *	If a device does not support multicast broadcast the stuff (eg AX.25 for now)
 		 */
 #endif
-		
+
 		case IS_BROADCAST:
 			memcpy(haddr, dev->broadcast, dev->addr_len);
 			skb->arp = 1;
@@ -864,7 +866,7 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 			 *	A request was already send, but no reply yet. Thus
 			 *	queue the packet with the previous attempt
 			 */
-			
+
 			if (skb != NULL)
 			{
 				skb_queue_tail(&entry->skb, skb);
@@ -877,7 +879,7 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 		/*
 		 *	Update the record
 		 */
-		
+
 		entry->last_used = jiffies;
 		memcpy(haddr, entry->ha, dev->addr_len);
 		if (skb)
@@ -889,7 +891,7 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 	/*
 	 *	Create a new unresolved entry.
 	 */
-	
+
 	entry = (struct arp_table *) kmalloc(sizeof(struct arp_table),
 					GFP_ATOMIC);
 	if (entry != NULL)
@@ -927,8 +929,8 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 	/*
 	 *	If we didn't find an entry, we will try to send an ARP packet.
 	 */
-	
-	arp_send(ARPOP_REQUEST, ETH_P_ARP, paddr, dev, saddr, NULL, 
+
+	arp_send(ARPOP_REQUEST, ETH_P_ARP, paddr, dev, saddr, NULL,
 		 dev->dev_addr);
 
 	return 1;
@@ -956,7 +958,7 @@ int arp_get_info(char *buffer, char **start, off_t offset, int length)
 
 	pos+=size;
 	len+=size;
-	  
+
 	cli();
 	for(i=0; i<FULL_ARP_TABLE_SIZE; i++)
 	{
@@ -979,7 +981,7 @@ int arp_get_info(char *buffer, char **start, off_t offset, int length)
 				hbuffer[k++]=':';
 			}
 			hbuffer[--k]=0;
-	
+
 #ifdef CONFIG_AX25
 			}
 #endif
@@ -993,10 +995,10 @@ int arp_get_info(char *buffer, char **start, off_t offset, int length)
 				 "     %-17s\n",
 				  entry->mask==DEF_ARP_NETMASK?
 				   "*":in_ntoa(entry->mask));
-	
+
 			len+=size;
 			pos=begin+len;
-		  
+
 			if(pos<offset)
 			{
 				len=0;
@@ -1007,7 +1009,7 @@ int arp_get_info(char *buffer, char **start, off_t offset, int length)
 		}
 	}
 	sti();
-  
+
 	*start=buffer+(offset-begin);	/* Start of wanted data */
 	len-=(offset-begin);		/* Start slop */
 	if(len>length)
@@ -1026,7 +1028,7 @@ static struct arp_table *arp_lookup(unsigned long paddr, enum proxy proxy)
 {
 	struct arp_table *entry;
 	unsigned long hash = HASH(paddr);
-	
+
 	for (entry = arp_tables[hash]; entry != NULL; entry = entry->next)
 		if (entry->ip == paddr) break;
 
@@ -1034,8 +1036,8 @@ static struct arp_table *arp_lookup(unsigned long paddr, enum proxy proxy)
 	if (!entry && proxy != PROXY_NONE)
 	for (entry=arp_tables[PROXY_HASH]; entry != NULL; entry = entry->next)
 	  if ((proxy==PROXY_EXACT) ? (entry->ip==paddr)
-	                           : !((entry->ip^paddr)&entry->mask)) 
-	    break;	  
+	                           : !((entry->ip^paddr)&entry->mask))
+	    break;
 
 	return entry;
 }
@@ -1065,7 +1067,7 @@ static int arp_req_set(struct arpreq *req)
 	 * We have to be compatible with BSD UNIX, so we have to
 	 * assume that a "not set" value (i.e. 0) means Ethernet.
 	 */
-	
+
 	switch (r.arp_ha.sa_family) {
 		case ARPHRD_ETHER:
 			htype = ARPHRD_ETHER;
@@ -1106,7 +1108,7 @@ static int arp_req_set(struct arpreq *req)
 	/*
 	 *	Is there an existing entry for this address?
 	 */
-	
+
 	cli();
 
 	/*
@@ -1124,7 +1126,7 @@ static int arp_req_set(struct arpreq *req)
 	/*
 	 *	Do we need to create a new entry
 	 */
-	
+
 	if (entry == NULL)
 	{
 	        unsigned long hash = HASH(ip);
@@ -1149,7 +1151,7 @@ static int arp_req_set(struct arpreq *req)
 	/*
 	 *	We now have a pointer to an ARP entry.  Update it!
 	 */
-	
+
 	memcpy(&entry->ha, &r.arp_ha.sa_data, hlen);
 	entry->last_used = jiffies;
 	entry->flags = r.arp_flags | ATF_COM;
@@ -1180,7 +1182,7 @@ static int arp_req_get(struct arpreq *req)
 	/*
 	 *	We only understand about IP addresses...
 	 */
-	
+
 	memcpy_fromfs(&r, req, sizeof(r));
 
 	if (r.arp_pa.sa_family != AF_INET)
@@ -1189,7 +1191,7 @@ static int arp_req_get(struct arpreq *req)
 	/*
 	 *	Is there an existing entry for this address?
 	 */
-	
+
 	si = (struct sockaddr_in *) &r.arp_pa;
 	cli();
 	entry = arp_lookup(si->sin_addr.s_addr,PROXY_ANY);
@@ -1203,7 +1205,7 @@ static int arp_req_get(struct arpreq *req)
 	/*
 	 *	We found it; copy into structure.
 	 */
-	
+
 	memcpy(r.arp_ha.sa_data, &entry->ha, entry->hlen);
 	r.arp_ha.sa_family = entry->htype;
 	r.arp_flags = entry->flags;
@@ -1212,7 +1214,7 @@ static int arp_req_get(struct arpreq *req)
 	/*
 	 *	Copy the information back
 	 */
-	
+
 	memcpy_tofs(req, &r, sizeof(r));
 	return 0;
 }

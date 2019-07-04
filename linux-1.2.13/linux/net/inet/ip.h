@@ -43,11 +43,11 @@ extern void		ip_mc_dropdevice(struct device *dev);
 extern int		ip_mc_procinfo(char *, char **, off_t, int);
 #define MULTICAST(x)	(IN_MULTICAST(htonl(x)))
 #endif
- 
+
 
 /* Describe an IP fragment. */
 struct ipfrag {
-  int		offset;		/* offset of fragment in IP datagram	*/
+  int		offset;		/* offset of fragment in IP datagram	*/ // 分段所在IP包的偏移量
   int		end;		/* last byte of data in datagram	*/
   int		len;		/* length of this fragment		*/
   struct sk_buff *skb;			/* complete received fragment		*/
@@ -87,7 +87,7 @@ extern unsigned short	ip_compute_csum(unsigned char * buff, int len);
 extern int		ip_rcv(struct sk_buff *skb, struct device *dev,
 			       struct packet_type *pt);
 extern void		ip_send_check(struct iphdr *ip);
-extern int		ip_id_count;			  
+extern int		ip_id_count;
 extern void		ip_queue_xmit(struct sock *sk,
 				      struct device *dev, struct sk_buff *skb,
 				      int free);

@@ -14,7 +14,7 @@
  *	Additional Authors:
  *		Alan Cox, <gw4pts@gw4pts.ampr.org>
  */
- 
+
 #include <asm/segment.h>
 #include <asm/system.h>
 #include <asm/bitops.h>
@@ -40,70 +40,71 @@
 #include "sock.h"
 #include "arp.h"
 
-/* 
- *	Determine a default network mask, based on the IP address. 
+/*
+ *	Determine a default network mask, based on the IP address.
  */
- 
+
 unsigned long ip_get_mask(unsigned long addr)
 {
   	unsigned long dst;
 
-  	if (addr == 0L) 
+  	if (addr == 0L)
   		return(0L);	/* special case */
 
   	dst = ntohl(addr);
-  	if (IN_CLASSA(dst)) 
+  	if (IN_CLASSA(dst))
   		return(htonl(IN_CLASSA_NET));
-  	if (IN_CLASSB(dst)) 
+  	if (IN_CLASSB(dst))
   		return(htonl(IN_CLASSB_NET));
-  	if (IN_CLASSC(dst)) 
+  	if (IN_CLASSC(dst))
   		return(htonl(IN_CLASSC_NET));
-  
+
   	/*
-  	 *	Something else, probably a multicast. 
+  	 *	Something else, probably a multicast.
   	 */
-  	 
+
   	return(0);
 }
 
-/* 
- *	Check the address for our address, broadcasts, etc. 
+/*
+ *	Check the address for our address, broadcasts, etc.
  *
  *	I intend to fix this to at the very least cache the last
  *	resolved entry.
  */
- 
+
 int ip_chk_addr(unsigned long addr)
 {
 	struct device *dev;
 	unsigned long mask;
 
-	/* 
-	 *	Accept both `all ones' and `all zeros' as BROADCAST. 
-	 *	(Support old BSD in other words). This old BSD 
+	/*
+	 *	Accept both `all ones' and `all zeros' as BROADCAST.
+	 *	(Support old BSD in other words). This old BSD
 	 *	support will go very soon as it messes other things
 	 *	up.
 	 *	Also accept `loopback broadcast' as BROADCAST.
 	 */
-
-	if (addr == INADDR_ANY || addr == INADDR_BROADCAST ||
+	// 是否广播地址
+	if (addr == INADDR_ANY ||
+		addr == INADDR_BROADCAST ||
 	    addr == htonl(0x7FFFFFFFL))
 		return IS_BROADCAST;
 
 	mask = ip_get_mask(addr);
 
 	/*
-	 *	Accept all of the `loopback' class A net. 
+	 *	Accept all of the `loopback' class A net.
 	 */
-	 
+
 	if ((addr & mask) == htonl(0x7F000000L))
 		return IS_MYADDR;
 
 	/*
-	 *	OK, now check the interface addresses. 
+	 *	OK, now check the interface addresses.
 	 */
-	 
-	for (dev = dev_base; dev != NULL; dev = dev->next) 
+
+	for (dev = dev_base; dev != NULL; dev = dev->next)
 	{
 		if (!(dev->flags & IFF_UP))
 			continue;
@@ -111,38 +112,38 @@ int ip_chk_addr(unsigned long addr)
 		 *	If the protocol address of the device is 0 this is special
 		 *	and means we are address hunting (eg bootp).
 		 */
-		 
+
 		if ((dev->pa_addr == 0)/* || (dev->flags&IFF_PROMISC)*/)
 			return IS_MYADDR;
 		/*
-		 *	Is it the exact IP address? 
+		 *	Is it the exact IP address?
 		 */
-		 
+
 		if (addr == dev->pa_addr)
 			return IS_MYADDR;
 		/*
-		 *	Is it our broadcast address? 
+		 *	Is it our broadcast address?
 		 */
-		 
+
 		if ((dev->flags & IFF_BROADCAST) && addr == dev->pa_brdaddr)
 			return IS_BROADCAST;
 		/*
-		 *	Nope. Check for a subnetwork broadcast. 
+		 *	Nope. Check for a subnetwork broadcast.
 		 */
-		 
-		if (((addr ^ dev->pa_addr) & dev->pa_mask) == 0) 
+
+		if (((addr ^ dev->pa_addr) & dev->pa_mask) == 0)
 		{
 			if ((addr & ~dev->pa_mask) == 0)
 				return IS_BROADCAST;
 			if ((addr & ~dev->pa_mask) == ~dev->pa_mask)
 				return IS_BROADCAST;
 		}
-		
+
 		/*
-	 	 *	Nope. Check for Network broadcast. 
+	 	 *	Nope. Check for Network broadcast.
 	 	 */
-	 	 
-		if (((addr ^ dev->pa_addr) & mask) == 0) 
+
+		if (((addr ^ dev->pa_addr) & mask) == 0)
 		{
 			if ((addr & ~mask) == 0)
 				return IS_BROADCAST;
@@ -165,31 +166,31 @@ int ip_chk_addr(unsigned long addr)
  *	al when it doesn't know which address to use (i.e. it does not
  *	yet know from or to which interface to go...).
  */
- 
+
 unsigned long ip_my_addr(void)
 {
   	struct device *dev;
 
-  	for (dev = dev_base; dev != NULL; dev = dev->next) 
+  	for (dev = dev_base; dev != NULL; dev = dev->next)
   	{
-		if (dev->flags & IFF_LOOPBACK) 
+		if (dev->flags & IFF_LOOPBACK)
 			return(dev->pa_addr);
   	}
   	return(0);
 }
 
 /*
- *	Find an interface that can handle addresses for a certain address. 
+ *	Find an interface that can handle addresses for a certain address.
  *
  *	This needs optimising, since it's relatively trivial to collapse
  *	the two loops into one.
  */
- 
+
 struct device * ip_dev_check(unsigned long addr)
 {
 	struct device *dev;
 
-	for (dev = dev_base; dev; dev = dev->next) 
+	for (dev = dev_base; dev; dev = dev->next)
 	{
 		if (!(dev->flags & IFF_UP))
 			continue;
@@ -199,7 +200,7 @@ struct device * ip_dev_check(unsigned long addr)
 			continue;
 		return dev;
 	}
-	for (dev = dev_base; dev; dev = dev->next) 
+	for (dev = dev_base; dev; dev = dev->next)
 	{
 		if (!(dev->flags & IFF_UP))
 			continue;

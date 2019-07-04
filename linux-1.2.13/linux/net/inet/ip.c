@@ -13,7 +13,7 @@
  *		Alan Cox, <gw4pts@gw4pts.ampr.org>
  *		Richard Underwood
  *		Stefan Becker, <stefanb@yello.ping.de>
- *		
+ *
  *
  * Fixes:
  *		Alan Cox	:	Commented a couple of minor bits of surplus code
@@ -69,7 +69,7 @@
  *		Bjorn Ekwall	:	Moved ip_fast_csum to ip.h (inline!)
  *		Stefan Becker   :       Send out ICMP HOST REDIRECT
  *		Alan Cox	:	Only send ICMP_REDIRECT if src/dest are the same net.
- *  
+ *
  *
  * To Fix:
  *		IP option processing is mostly not needed. ip_forward needs to know about routing rules
@@ -77,7 +77,7 @@
  *		IP fragmentation wants rewriting cleanly. The RFC815 algorithm is much more efficient
  *		and could be made very efficient with the addition of some virtual memory hacks to permit
  *		the allocation of a buffer that can then be 'grown' by twiddling page tables.
- *		Output fragmentation wants updating along with the buffer management to use a single 
+ *		Output fragmentation wants updating along with the buffer management to use a single
  *		interleaved copy algorithm so that fragmenting has a one copy overhead. Actual packet
  *		output should probably do its own fragmentation at the UDP/RAW layer. TCP shouldn't cause
  *		fragmentation anyway.
@@ -242,7 +242,7 @@ int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long dadd
 	 *	See if we need to look up the device.
 	 */
 
-#ifdef CONFIG_INET_MULTICAST	
+#ifdef CONFIG_INET_MULTICAST
 	if(MULTICAST(daddr) && *dev==NULL && skb->sk && *skb->sk->ip_mc_name)
 		*dev=dev_get(skb->sk->ip_mc_name);
 #endif
@@ -606,8 +606,10 @@ static struct ipq *ip_find(struct iphdr *iph)
 	qplast = NULL;
 	for(qp = ipqueue; qp != NULL; qplast = qp, qp = qp->next)
 	{
-		if (iph->id== qp->iph->id && iph->saddr == qp->iph->saddr &&
-			iph->daddr == qp->iph->daddr && iph->protocol == qp->iph->protocol)
+		if (iph->id== qp->iph->id &&
+			iph->saddr == qp->iph->saddr &&
+			iph->daddr == qp->iph->daddr &&
+			iph->protocol == qp->iph->protocol)
 		{
 			del_timer(&qp->timer);	/* So it doesn't vanish on us. The timer will be reset anyway */
 			sti();
@@ -678,7 +680,7 @@ static void ip_free(struct ipq *qp)
 /*
  *	Oops- a fragment queue timed out.  Kill it and send an ICMP reply.
  */
-
+// 一个分段队列超时, 删除并且发送一个ICMP回复
 static void ip_expire(unsigned long arg)
 {
 	struct ipq *qp;
@@ -690,7 +692,7 @@ static void ip_expire(unsigned long arg)
 	 */
 
 	ip_statistics.IpReasmTimeout++;
-	ip_statistics.IpReasmFails++;   
+	ip_statistics.IpReasmFails++;
 	/* This if is always true... shrug */
 	if(qp->fragments!=NULL)
 		icmp_send(qp->fragments->skb,ICMP_TIME_EXCEEDED,
@@ -785,7 +787,7 @@ static struct ipq *ip_create(struct sk_buff *skb, struct iphdr *iph, struct devi
 /*
  *	See if a fragment queue is complete.
  */
-
+// 判断一个分段队列是否已经完成
 static int ip_done(struct ipq *qp)
 {
 	struct ipfrag *fp;
@@ -819,7 +821,7 @@ static int ip_done(struct ipq *qp)
  *	to touch this with a bargepole. This also causes a 4Kish limit on
  *	packet sizes.
  */
-
+// 把一个分段队列组合成一个sk_buff
 static struct sk_buff *ip_glue(struct ipq *qp)
 {
 	struct sk_buff *skb;
@@ -891,7 +893,7 @@ static struct sk_buff *ip_glue(struct ipq *qp)
 /*
  *	Process an incoming IP datagram fragment.
  */
-
+// 处理IP分段队列
 static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct device *dev)
 {
 	struct ipfrag *prev, *next;
@@ -905,20 +907,19 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 	ip_statistics.IpReasmReqds++;
 
 	/* Find the entry of this IP datagram in the "incomplete datagrams" queue. */
-	qp = ip_find(iph);
+	qp = ip_find(iph); // 查找当前IP包对应的分段队列
 
 	/* Is this a non-fragmented datagram? */
-	offset = ntohs(iph->frag_off);
-	flags = offset & ~IP_OFFSET;
+	offset = ntohs(iph->frag_off);  // 分段偏移量
+	flags = offset & ~IP_OFFSET;    // 分段标志
 	offset &= IP_OFFSET;
-	if (((flags & IP_MF) == 0) && (offset == 0))
-	{
+	if (((flags & IP_MF) == 0) && (offset == 0)) {
 		if (qp != NULL)
 			ip_free(qp);	/* Huh? How could this exist?? */
 		return(skb);
 	}
 
-	offset <<= 3;		/* offset is in 8-byte chunks */
+	offset <<= 3;		/* offset is in 8-byte chunks */ // 偏移量是8字节对齐的
 
 	/*
 	 * If the queue already existed, keep restarting its timer as long
@@ -926,12 +927,11 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 	 * queue entry.
 	 */
 
-	if (qp != NULL)
-	{
+	if (qp != NULL) {
 		del_timer(&qp->timer);
-		qp->timer.expires = IP_FRAG_TIME;	/* about 30 seconds */
+		qp->timer.expires = IP_FRAG_TIME;		/* about 30 seconds */
 		qp->timer.data = (unsigned long) qp;	/* pointer to queue */
-		qp->timer.function = ip_expire;		/* expire function */
+		qp->timer.function = ip_expire;			/* expire function */
 		add_timer(&qp->timer);
 	}
 	else
@@ -939,7 +939,7 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 		/*
 		 *	If we failed to create it, then discard the frame
 		 */
-		if ((qp = ip_create(skb, iph, dev)) == NULL)
+		if ((qp = ip_create(skb, iph, dev)) == NULL) // 新建一个分段包队列
 		{
 			skb->sk = NULL;
 			kfree_skb(skb, FREE_READ);
@@ -952,14 +952,14 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 	 *	Determine the position of this fragment.
 	 */
 
-	ihl = (iph->ihl * sizeof(unsigned long));
-	end = offset + ntohs(iph->tot_len) - ihl;
+	ihl = (iph->ihl * sizeof(unsigned long));  // IP头部长度
+	end = offset + ntohs(iph->tot_len) - ihl;  // 当前分段所在尾部
 
 	/*
 	 *	Point into the IP datagram 'data' part.
 	 */
 
-	ptr = skb->data + dev->hard_header_len + ihl;
+	ptr = skb->data + dev->hard_header_len + ihl; // 数据开始位置
 
 	/*
 	 *	Is this the final fragment?
@@ -975,7 +975,7 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 	 */
 
 	prev = NULL;
-	for(next = qp->fragments; next != NULL; next = next->next)
+	for(next = qp->fragments; next != NULL; next = next->next) // 当前分段是否为空洞的段
 	{
 		if (next->offset > offset)
 			break;	/* bingo! */
@@ -987,11 +987,11 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 	 * 	Check for overlap with preceding fragment, and, if needed,
 	 * 	align things so that any overlaps are eliminated.
 	 */
-	if (prev != NULL && offset < prev->end)
+	if (prev != NULL && offset < prev->end) // 重叠了
 	{
-		i = prev->end - offset;
-		offset += i;	/* ptr into datagram */
-		ptr += i;	/* ptr into fragment data */
+		i = prev->end - offset; // 重叠部分
+		offset += i;	/* ptr into datagram */   // 跳过重叠部分
+		ptr += i;	/* ptr into fragment data */  // 跳过重叠部分
 	}
 
 	/*
@@ -1005,7 +1005,7 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 		if (next->offset >= end)
 			break;		/* no overlaps at all */
 
-		i = end - next->offset;			/* overlap is 'i' bytes */
+		i = end - next->offset;			/* overlap is 'i' bytes */ // 重叠部分
 		next->len -= i;				/* so reduce size of	*/
 		next->offset += i;			/* next fragment	*/
 		next->ptr += i;
@@ -1062,7 +1062,7 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
 	 * 	bump up to the IP layer...
 	 */
 
-	if (ip_done(qp))
+	if (ip_done(qp)) // 包是否完整了
 	{
 		skb2 = ip_glue(qp);		/* glue together the fragments */
 		return(skb2);
@@ -1084,6 +1084,7 @@ static struct sk_buff *ip_defrag(struct iphdr *iph, struct sk_buff *skb, struct 
  *	**Protocol Violation**
  *	We copy all the options to each fragment. !FIXME!
  */
+// 将IP数据报分段发送
 void ip_fragment(struct sock *sk, struct sk_buff *skb, struct device *dev, int is_frag)
 {
 	struct iphdr *iph;
@@ -1098,8 +1099,8 @@ void ip_fragment(struct sock *sk, struct sk_buff *skb, struct device *dev, int i
 	 *	Point into the IP datagram header.
 	 */
 
-	raw = skb->data;
-	iph = (struct iphdr *) (raw + dev->hard_header_len);
+	raw = skb->data; // 原始数据开始
+	iph = (struct iphdr *) (raw + dev->hard_header_len); // IP头部
 
 	skb->ip_hdr = iph;
 
@@ -1108,16 +1109,16 @@ void ip_fragment(struct sock *sk, struct sk_buff *skb, struct device *dev, int i
 	 */
 
 	hlen = (iph->ihl * sizeof(unsigned long));
-	left = ntohs(iph->tot_len) - hlen;	/* Space per frame */
-	hlen += dev->hard_header_len;		/* Total header size */
-	mtu = (dev->mtu - hlen);		/* Size of data space */
-	ptr = (raw + hlen);			/* Where to start from */
+	left = ntohs(iph->tot_len) - hlen;	/* Space per frame */     // 除了IP头部的真实数据长度
+	hlen += dev->hard_header_len;		/* Total header size */   // 头部(IP头部和MAC头部)的总长度
+	mtu = (dev->mtu - hlen);			/* Size of data space */  // 一个mtu除了头部能够装下多少数据
+	ptr = (raw + hlen);					/* Where to start from */ // 真实数据的开始
 
 	/*
 	 *	Check for any "DF" flag. [DF means do not fragment]
 	 */
 
-	if (ntohs(iph->frag_off) & IP_DF)
+	if (ntohs(iph->frag_off) & IP_DF) // 如果不支持分段
 	{
 		/*
 		 *	Reply giving the MTU of the failed hop.
@@ -1221,7 +1222,7 @@ void ip_fragment(struct sock *sk, struct sk_buff *skb, struct device *dev, int i
 		memcpy(skb2->h.raw + hlen, ptr, len);
 		left -= len;
 
-		skb2->h.raw+=dev->hard_header_len;
+		skb2->h.raw += dev->hard_header_len;
 
 		/*
 		 *	Fill in the new header fields.
@@ -1264,14 +1265,14 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 	struct rtable *rt;	/* Route we use */
 	unsigned char *ptr;	/* Data pointer */
 	unsigned long raddr;	/* Router IP address */
-	
-	/* 
+
+	/*
 	 *	See if we are allowed to forward this.
 	 */
 
 #ifdef CONFIG_IP_FIREWALL
 	int err;
-	
+
 	if((err=ip_fw_chk(skb->h.iph, dev, ip_fw_fwd_chain, ip_fw_fwd_policy, 0))!=1)
 	{
 		if(err==-1)
@@ -1362,7 +1363,7 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 	dev2 = rt->rt_dev;
 
 	/*
-	 *	In IP you never have to forward a frame on the interface that it 
+	 *	In IP you never have to forward a frame on the interface that it
 	 *	arrived upon. We now generate an ICMP HOST REDIRECT giving the route
 	 *	we calculated.
 	 */
@@ -1372,7 +1373,7 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 #else
 	if (dev == dev2 && (iph->saddr&dev->pa_mask) == (iph->daddr & dev->pa_mask))
 		icmp_send(skb, ICMP_REDIRECT, ICMP_REDIR_HOST, raddr, dev);
-#endif		
+#endif
 
 	/*
 	 * We now allocate a new buffer, and copy the datagram into it.
@@ -1426,14 +1427,14 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 		}
 		else
 		{
-#ifdef CONFIG_IP_ACCT		
+#ifdef CONFIG_IP_ACCT
 			/*
 			 *	Count mapping we shortcut
 			 */
-			 
+
 			ip_acct_cnt(iph,dev,ip_acct_chain);
-#endif			
-			
+#endif
+
 			/*
 			 *	Map service types to priority. We lie about
 			 *	throughput being low priority, but it's a good
@@ -1470,7 +1471,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	int is_frag=0;
 #ifdef CONFIG_IP_FIREWALL
 	int err;
-#endif	
+#endif
 
 	ip_statistics.IpInReceives++;
 
@@ -1489,30 +1490,33 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	(4.	We ought to check for IP multicast addresses and undefined types.. does this matter ?)
 	 */
 
-	if (skb->len<sizeof(struct iphdr) || iph->ihl<5 || iph->version != 4 ||
-		skb->len<ntohs(iph->tot_len) || ip_fast_csum((unsigned char *)iph, iph->ihl) !=0)
+	if (skb->len<sizeof(struct iphdr) ||
+		iph->ihl<5 ||
+		iph->version != 4 ||
+		skb->len<ntohs(iph->tot_len) ||
+		ip_fast_csum((unsigned char *)iph, iph->ihl) !=0)
 	{
 		ip_statistics.IpInHdrErrors++;
 		kfree_skb(skb, FREE_WRITE);
 		return(0);
 	}
-	
+
 	/*
-	 *	See if the firewall wants to dispose of the packet. 
+	 *	See if the firewall wants to dispose of the packet.
 	 */
 
 #ifdef	CONFIG_IP_FIREWALL
-	
+
 	if ((err=ip_fw_chk(iph,dev,ip_fw_blk_chain,ip_fw_blk_policy, 0))!=1)
 	{
 		if(err==-1)
 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0, dev);
 		kfree_skb(skb, FREE_WRITE);
-		return 0;	
+		return 0;
 	}
 
 #endif
-	
+
 	/*
 	 *	Our transport medium may have padded the buffer out. Now we know it
 	 *	is IP we can trim to the true length of the frame.
@@ -1536,19 +1540,19 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	/*
 	 *	Remember if the frame is fragmented.
 	 */
-	 
-	if(iph->frag_off)
+
+	if(iph->frag_off) // 是否分片
 	{
 		if (iph->frag_off & 0x0020)
 			is_frag|=1;
 		/*
 		 *	Last fragment ?
 		 */
-	
-		if (ntohs(iph->frag_off) & 0x1fff)
+
+		if (ntohs(iph->frag_off) & 0x1fff) // 最后一个分片
 			is_frag|=2;
 	}
-	
+
 	/*
 	 *	Do any IP forwarding required.  chk_addr() is expensive -- avoid it someday.
 	 *
@@ -1592,8 +1596,8 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		kfree_skb(skb, FREE_WRITE);
 		return(0);
 	}
-	
-#ifdef CONFIG_IP_MULTICAST	
+
+#ifdef CONFIG_IP_MULTICAST
 
 	if(brd==IS_MULTICAST && iph->daddr!=IGMP_ALL_HOSTS && !(dev->flags&IFF_LOOPBACK))
 	{
@@ -1604,7 +1608,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		do
 		{
 			if(ip_mc==NULL)
-			{	
+			{
 				kfree_skb(skb, FREE_WRITE);
 				return 0;
 			}
@@ -1618,26 +1622,24 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	/*
 	 *	Account for the packet
 	 */
-	 
+
 #ifdef CONFIG_IP_ACCT
 	ip_acct_cnt(iph,dev, ip_acct_chain);
-#endif	
+#endif
 
 	/*
 	 * Reassemble IP fragments.
 	 */
 
-	if(is_frag)
+	if(is_frag) // 如果是个IP分段包
 	{
 		/* Defragment. Obtain the complete packet if there is one */
-		skb=ip_defrag(iph,skb,dev);
+		skb=ip_defrag(iph,skb,dev); // 重组数据包
 		if(skb==NULL)
 			return 0;
 		skb->dev = dev;
 		iph=skb->h.iph;
 	}
-	
-		 
 
 	/*
 	 *	Point into the IP datagram, just past the header.
@@ -1645,19 +1647,19 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 	skb->ip_hdr = iph;
 	skb->h.raw += iph->ihl*4;
-	
+
 	/*
 	 *	Deliver to raw sockets. This is fun as to avoid copies we want to make no surplus copies.
 	 */
-	 
+
 	hash = iph->protocol & (SOCK_ARRAY_SIZE-1);
-	
+
 	/* If there maybe a raw socket we must check - if not we don't care less */
 	if((raw_sk=raw_prot.sock_array[hash])!=NULL)
 	{
 		struct sock *sknext=NULL;
 		struct sk_buff *skb1;
-		raw_sk=get_sock_raw(raw_sk, hash,  iph->saddr, iph->daddr);
+		raw_sk=get_sock_raw(raw_sk, hash,  iph->saddr, iph->daddr); // 当前IP是否被raw socket监听
 		if(raw_sk)	/* Any raw sockets */
 		{
 			do
@@ -1677,13 +1679,15 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 			/* We deliver to the last raw socket AFTER the protocol checks as it avoids a surplus copy */
 		}
 	}
-	
+
 	/*
 	 *	skb->h.raw now points at the protocol beyond the IP header.
 	 */
 
-	hash = iph->protocol & (MAX_INET_PROTOS -1);
-	for (ipprot = (struct inet_protocol *)inet_protos[hash];ipprot != NULL;ipprot=(struct inet_protocol *)ipprot->next)
+	hash = iph->protocol & (MAX_INET_PROTOS -1); // 查找上层协议
+	for (ipprot = (struct inet_protocol *)inet_protos[hash];
+		 ipprot != NULL;
+		 ipprot=(struct inet_protocol *)ipprot->next)
 	{
 		struct sk_buff *skb2;
 
@@ -1707,15 +1711,15 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		}
 		flag = 1;
 
-	       /*
+	   /*
 		* Pass on the datagram to each protocol that wants it,
 		* based on the datagram protocol.  We should really
 		* check the protocol handler's return values here...
 		*/
+		// 上层协议处理(比如TCP/UDP)
 		ipprot->handler(skb2, dev, opts_p ? &opt : 0, iph->daddr,
 				(ntohs(iph->tot_len) - (iph->ihl * 4)),
 				iph->saddr, 0, ipprot);
-
 	}
 
 	/*
@@ -1727,9 +1731,9 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 	if(raw_sk!=NULL)	/* Shift to last raw user */
 		raw_rcv(raw_sk, skb, dev, iph->saddr, iph->daddr);
-	else if (!flag)		/* Free and report errors */
+	else if (!flag)		/* Free and report errors */ // 这里是找不到上层协议
 	{
-		if (brd != IS_BROADCAST && brd!=IS_MULTICAST)
+		if (brd != IS_BROADCAST && brd != IS_MULTICAST)
 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PROT_UNREACH, 0, dev);
 		kfree_skb(skb, FREE_WRITE);
 	}
@@ -1740,17 +1744,17 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 /*
  *	Loop a packet back to the sender.
  */
- 
+
 static void ip_loopback(struct device *old_dev, struct sk_buff *skb)
 {
 	extern struct device loopback_dev;
 	struct device *dev=&loopback_dev;
 	int len=skb->len-old_dev->hard_header_len;
 	struct sk_buff *newskb=alloc_skb(len+dev->hard_header_len, GFP_ATOMIC);
-	
+
 	if(newskb==NULL)
 		return;
-		
+
 	newskb->link3=NULL;
 	newskb->sk=NULL;
 	newskb->dev=dev;
@@ -1762,13 +1766,13 @@ static void ip_loopback(struct device *old_dev, struct sk_buff *skb)
 	newskb->users=0;
 	newskb->pkt_type=skb->pkt_type;
 	newskb->len=len+dev->hard_header_len;
-	
-	
+
+
 	newskb->ip_hdr=(struct iphdr *)(newskb->data+ip_send(newskb, skb->ip_hdr->daddr, len, dev, skb->ip_hdr->saddr));
 	memcpy(newskb->ip_hdr,skb->ip_hdr,len);
 
 	/* Recurse. The device check against IFF_LOOPBACK will stop infinite recursion */
-		
+
 	/*printk("Loopback output queued [%lX to %lX].\n", newskb->ip_hdr->saddr,newskb->ip_hdr->daddr);*/
 	ip_queue_xmit(NULL, dev, newskb, 1);
 }
@@ -1782,7 +1786,7 @@ static void ip_loopback(struct device *old_dev, struct sk_buff *skb)
  * This routine also needs to put in the total length,
  * and compute the checksum
  */
-
+// 传输IP数据报
 void ip_queue_xmit(struct sock *sk, struct device *dev,
 	      struct sk_buff *skb, int free)
 {
@@ -1818,22 +1822,22 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 	ptr += dev->hard_header_len;
 	iph = (struct iphdr *)ptr;
 	skb->ip_hdr = iph;
-	iph->tot_len = ntohs(skb->len-dev->hard_header_len);
+	iph->tot_len = ntohs(skb->len - dev->hard_header_len);
 
-#ifdef CONFIG_IP_FIREWALL
+#ifdef CONFIG_IP_FIREWALL  // 是否检查防火墙
 	if(ip_fw_chk(iph, dev, ip_fw_blk_chain, ip_fw_blk_policy, 0) != 1)
 		/* just don't send this packet */
 		return;
-#endif	
+#endif
 
 	/*
 	 *	No reassigning numbers to fragments...
 	 */
 
 	if(free!=2)
-		iph->id      = htons(ip_id_count++);
+		iph->id = htons(ip_id_count++);
 	else
-		free=1;
+		free = 1;
 
 	/* All buffers without an owner socket get freed */
 	if (sk == NULL)
@@ -1846,9 +1850,8 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 	 *	We need to somehow lock the original buffer and use
 	 *	bits of it.
 	 */
-
-	if(skb->len > dev->mtu + dev->hard_header_len)
-	{
+	// 数据报太大, 需要分段传输
+	if(skb->len > dev->mtu + dev->hard_header_len) {
 		ip_fragment(sk,skb,dev,0);
 		IS_SKB(skb);
 		kfree_skb(skb,FREE_WRITE);
@@ -1920,18 +1923,18 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 	/*
 	 *	If the indicated interface is up and running, send the packet.
 	 */
-	 
+
 	ip_statistics.IpOutRequests++;
 #ifdef CONFIG_IP_ACCT
 	ip_acct_cnt(iph,dev, ip_acct_chain);
-#endif	
-	
-#ifdef CONFIG_IP_MULTICAST	
+#endif
+
+#ifdef CONFIG_IP_MULTICAST
 
 	/*
 	 *	Multicasts are looped back for other local users
 	 */
-	 
+
 	if (MULTICAST(iph->daddr) && !(dev->flags&IFF_LOOPBACK))
 	{
 		if(sk==NULL || sk->ip_mc_loop)
@@ -1953,7 +1956,7 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 			}
 		}
 		/* Multicasts with ttl 0 must not go beyond the host */
-		
+
 		if(skb->ip_hdr->ttl==0)
 		{
 			kfree_skb(skb, FREE_READ);
@@ -1963,7 +1966,7 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 #endif
 	if((dev->flags&IFF_BROADCAST) && iph->daddr==dev->pa_brdaddr && !(dev->flags&IFF_LOOPBACK))
 		ip_loopback(dev,skb);
-		
+
 	if (dev->flags & IFF_UP)
 	{
 		/*
@@ -1996,7 +1999,7 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
  *	Write an multicast group list table for the IGMP daemon to
  *	read.
  */
- 
+
 int ip_mc_procinfo(char *buffer, char **start, off_t offset, int length)
 {
 	off_t pos=0, begin=0;
@@ -2004,11 +2007,11 @@ int ip_mc_procinfo(char *buffer, char **start, off_t offset, int length)
 	unsigned long flags;
 	int len=0;
 	struct device *dev;
-	
-	len=sprintf(buffer,"Device    : Count\tGroup    Users Timer\n");  
+
+	len=sprintf(buffer,"Device    : Count\tGroup    Users Timer\n");
 	save_flags(flags);
 	cli();
-	
+
 	for(dev = dev_base; dev; dev = dev->next)
 	{
                 if((dev->flags&IFF_UP)&&(dev->flags&IFF_MULTICAST))
@@ -2036,12 +2039,12 @@ int ip_mc_procinfo(char *buffer, char **start, off_t offset, int length)
 	*start=buffer+(offset-begin);
 	len-=(offset-begin);
 	if(len>length)
-		len=length;	
+		len=length;
 	return len;
 }
 
 
-#endif	
+#endif
 /*
  *	Socket option code for IP. This is the end of the line after any TCP,UDP etc options on
  *	an IP socket.
@@ -2056,7 +2059,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 	int val,err;
 #if defined(CONFIG_IP_FIREWALL) || defined(CONFIG_IP_ACCT)
 	struct ip_fw tmp_fw;
-#endif	
+#endif
 	if (optval == NULL)
 		return(-EINVAL);
 
@@ -2086,7 +2089,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			sk->ip_ttl=val;
 			return 0;
 #ifdef CONFIG_IP_MULTICAST
-		case IP_MULTICAST_TTL: 
+		case IP_MULTICAST_TTL:
 		{
 			unsigned char ucval;
 
@@ -2094,7 +2097,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			sk->ip_mc_ttl=(int)ucval;
 	                return 0;
 		}
-		case IP_MULTICAST_LOOP: 
+		case IP_MULTICAST_LOOP:
 		{
 			unsigned char ucval;
 
@@ -2104,12 +2107,12 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			sk->ip_mc_loop=(int)ucval;
 			return 0;
 		}
-		case IP_MULTICAST_IF: 
+		case IP_MULTICAST_IF:
 		{
 			/* Not fully tested */
 			struct in_addr addr;
 			struct device *dev=NULL;
-			
+
 			/*
 			 *	Check the arguments are allowable
 			 */
@@ -2117,47 +2120,47 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			err=verify_area(VERIFY_READ, optval, sizeof(addr));
 			if(err)
 				return err;
-				
+
 			memcpy_fromfs(&addr,optval,sizeof(addr));
-			
+
 			printk("MC bind %s\n", in_ntoa(addr.s_addr));
-			
+
 			/*
 			 *	What address has been requested
 			 */
-			
+
 			if(addr.s_addr==INADDR_ANY)	/* Default */
 			{
 				sk->ip_mc_name[0]=0;
 				return 0;
 			}
-			
+
 			/*
 			 *	Find the device
 			 */
-			 
+
 			for(dev = dev_base; dev; dev = dev->next)
 			{
 				if((dev->flags&IFF_UP)&&(dev->flags&IFF_MULTICAST)&&
 					(dev->pa_addr==addr.s_addr))
 					break;
 			}
-			
+
 			/*
 			 *	Did we find one
 			 */
-			 
-			if(dev) 
+
+			if(dev)
 			{
 				strcpy(sk->ip_mc_name,dev->name);
 				return 0;
 			}
 			return -EADDRNOTAVAIL;
 		}
-		
-		case IP_ADD_MEMBERSHIP: 
+
+		case IP_ADD_MEMBERSHIP:
 		{
-		
+
 /*
  *	FIXME: Add/Del membership should have a semaphore protecting them from re-entry
  */
@@ -2166,7 +2169,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			unsigned long route_src;
 			struct rtable *rt;
 			struct device *dev=NULL;
-			
+
 			/*
 			 *	Check the arguments.
 			 */
@@ -2177,11 +2180,11 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 
 			memcpy_fromfs(&mreq,optval,sizeof(mreq));
 
-			/* 
+			/*
 			 *	Get device for use later
 			 */
 
-			if(mreq.imr_interface.s_addr==INADDR_ANY) 
+			if(mreq.imr_interface.s_addr==INADDR_ANY)
 			{
 				/*
 				 *	Not set so scan.
@@ -2204,22 +2207,22 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 						break;
 				}
 			}
-			
+
 			/*
 			 *	No device, no cookies.
 			 */
-			 
+
 			if(!dev)
 				return -ENODEV;
-				
+
 			/*
 			 *	Join group.
 			 */
-			 
+
 			return ip_mc_join_group(sk,dev,mreq.imr_multiaddr.s_addr);
 		}
-		
-		case IP_DROP_MEMBERSHIP: 
+
+		case IP_DROP_MEMBERSHIP:
 		{
 			struct ip_mreq mreq;
 			struct rtable *rt;
@@ -2230,7 +2233,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			/*
 			 *	Check the arguments
 			 */
-			 
+
 			err=verify_area(VERIFY_READ, optval, sizeof(mreq));
 			if(err)
 				return err;
@@ -2238,10 +2241,10 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			memcpy_fromfs(&mreq,optval,sizeof(mreq));
 
 			/*
-			 *	Get device for use later 
+			 *	Get device for use later
 			 */
- 
-			if(mreq.imr_interface.s_addr==INADDR_ANY) 
+
+			if(mreq.imr_interface.s_addr==INADDR_ANY)
 			{
 				if((rt=ip_rt_route(mreq.imr_multiaddr.s_addr,&optmem, &route_src))!=NULL)
 			        {
@@ -2249,7 +2252,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 					rt->rt_use--;
 				}
 			}
-			else 
+			else
 			{
 				for(dev = dev_base; dev; dev = dev->next)
 				{
@@ -2258,21 +2261,21 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 						break;
 				}
 			}
-			
+
 			/*
 			 *	Did we find a suitable device.
 			 */
-			 
+
 			if(!dev)
 				return -ENODEV;
-				
+
 			/*
 			 *	Leave group
 			 */
-			 
+
 			return ip_mc_leave_group(sk,dev,mreq.imr_multiaddr.s_addr);
 		}
-#endif			
+#endif
 #ifdef CONFIG_IP_FIREWALL
 		case IP_FW_ADD_BLK:
 		case IP_FW_DEL_BLK:
@@ -2296,7 +2299,7 @@ int ip_setsockopt(struct sock *sk, int level, int optname, char *optval, int opt
 			memcpy_fromfs(&tmp_fw,optval,optlen);
 			err=ip_fw_ctl(optname, &tmp_fw,optlen);
 			return -err;	/* -0 is 0 after all */
-			
+
 #endif
 #ifdef CONFIG_IP_ACCT
 		case IP_ACCT_DEL:
@@ -2331,7 +2334,7 @@ int ip_getsockopt(struct sock *sk, int level, int optname, char *optval, int *op
 #ifdef CONFIG_IP_MULTICAST
 	int len;
 #endif
-	
+
 	if(level!=SOL_IP)
 		return -EOPNOTSUPP;
 
@@ -2343,7 +2346,7 @@ int ip_getsockopt(struct sock *sk, int level, int optname, char *optval, int *op
 		case IP_TTL:
 			val=sk->ip_ttl;
 			break;
-#ifdef CONFIG_IP_MULTICAST			
+#ifdef CONFIG_IP_MULTICAST
 		case IP_MULTICAST_TTL:
 			val=sk->ip_mc_ttl;
 			break;
@@ -2394,7 +2397,7 @@ static struct packet_type ip_packet_type =
 /*
  *	Device notifier
  */
- 
+
 static int ip_rt_event(unsigned long event, void *ptr)
 {
 	if(event==NETDEV_DOWN)
@@ -2417,7 +2420,7 @@ void ip_init(void)
 	ip_packet_type.type=htons(ETH_P_IP);
 	dev_add_pack(&ip_packet_type);
 
-	/* So we flush routes when a device is downed */	
+	/* So we flush routes when a device is downed */
 	register_netdevice_notifier(&ip_rt_notifier);
 /*	ip_raw_init();
 	ip_packet_init();

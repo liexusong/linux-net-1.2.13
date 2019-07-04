@@ -31,20 +31,20 @@
 /* for future expansion when we will have different priorities. */
 #define DEV_NUMBUFFS	3
 #define MAX_ADDR_LEN	7
-#define MAX_HEADER	18
+#define MAX_HEADER  	18
 
-#define IS_MYADDR	1		/* address is (one of) our own	*/
-#define IS_LOOPBACK	2		/* address is for LOOPBACK	*/
+#define IS_MYADDR	    1		/* address is (one of) our own	*/
+#define IS_LOOPBACK	  2		/* address is for LOOPBACK	*/
 #define IS_BROADCAST	3		/* address is a valid broadcast	*/
-#define IS_INVBCAST	4		/* Wrong netmask bcast not for us (unused)*/
+#define IS_INVBCAST	  4		/* Wrong netmask bcast not for us (unused)*/
 #define IS_MULTICAST	5		/* Multicast IP address */
 
 /*
  *	We tag these structures with multicasts.
  */
- 
+
 struct dev_mc_list
-{	
+{
 	struct dev_mc_list *next;
 	char dmi_addr[MAX_ADDR_LEN];
 	unsigned short dmi_addrlen;
@@ -55,9 +55,9 @@ struct dev_mc_list
  * The DEVICE structure.
  * Actually, this whole structure is a big mistake.  It mixes I/O
  * data with strictly "high-level" data, and it has to know about
- * almost every data structure used in the INET module.  
+ * almost every data structure used in the INET module.
  */
-struct device 
+struct device
 {
 
   /*
@@ -122,14 +122,14 @@ struct device
 
   struct dev_mc_list	 *mc_list;	/* Multicast mac addresses	*/
   int			 mc_count;	/* Number of installed mcasts	*/
-  
+
   struct ip_mc_list	 *ip_mc_list;	/* IP multicast filter chain    */
-    
+
   /* For load balancing driver pair support */
-  
+
   unsigned long		   pkt_queue;	/* Packets queued */
   struct device		  *slave;	/* Slave device */
-  
+
 
   /* Pointer to the interface buffers. */
   struct sk_buff_head	  buffs[DEV_NUMBUFFS];
@@ -150,16 +150,16 @@ struct device
 				unsigned long raddr, struct sk_buff *skb);
   unsigned short	  (*type_trans) (struct sk_buff *skb,
 					 struct device *dev);
-#define HAVE_MULTICAST			 
+#define HAVE_MULTICAST
   void			  (*set_multicast_list)(struct device *dev,
   					 int num_addrs, void *addrs);
-#define HAVE_SET_MAC_ADDR  		 
+#define HAVE_SET_MAC_ADDR
   int			  (*set_mac_address)(struct device *dev, void *addr);
 #define HAVE_PRIVATE_IOCTL
   int			  (*do_ioctl)(struct device *dev, struct ifreq *ifr, int cmd);
 #define HAVE_SET_CONFIG
   int			  (*set_config)(struct device *dev, struct ifmap *map);
-  
+
 };
 
 
