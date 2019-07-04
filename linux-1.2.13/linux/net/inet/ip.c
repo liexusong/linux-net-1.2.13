@@ -1234,7 +1234,7 @@ void ip_fragment(struct sock *sk, struct sk_buff *skb, struct device *dev, int i
 		 *		   last fragment then keep MF on each bit
 		 */
 		if (left > 0 || (is_frag & 1))
-			iph->frag_off |= htons(IP_MF);
+			iph->frag_off |= htons(IP_MF); // 需要更多的分段
 		ptr += len;
 		offset += len;
 
