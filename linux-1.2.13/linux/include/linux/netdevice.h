@@ -113,12 +113,12 @@ struct device
   /* Interface address info. */
   unsigned char		  broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
   unsigned char		  dev_addr[MAX_ADDR_LEN];	/* hw address	*/
-  unsigned char		  addr_len;	/* hardware address length	*/
-  unsigned long		  pa_addr;	/* protocol address		*/
+  unsigned char		  addr_len;	  /* hardware address length	*/
+  unsigned long		  pa_addr;	  /* protocol address		*/
   unsigned long		  pa_brdaddr;	/* protocol broadcast addr	*/
   unsigned long		  pa_dstaddr;	/* protocol P-P other side addr	*/
-  unsigned long		  pa_mask;	/* protocol netmask		*/
-  unsigned short	  pa_alen;	/* protocol address length	*/
+  unsigned long		  pa_mask;	  /* protocol netmask		*/
+  unsigned short	  pa_alen;	  /* protocol address length	*/
 
   struct dev_mc_list	 *mc_list;	/* Multicast mac addresses	*/
   int			 mc_count;	/* Number of installed mcasts	*/

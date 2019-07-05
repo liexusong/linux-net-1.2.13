@@ -19,7 +19,7 @@
  *		(rco@di.uminho.pt)	Routing table insertion and update
  *		Linus Torvalds	:	Rewrote bits to be sensible
  *		Alan Cox	:	Added BSD route gw semantics
- *		Alan Cox	:	Super /proc >4K 
+ *		Alan Cox	:	Super /proc >4K
  *		Alan Cox	:	MTU in route table
  *		Alan Cox	: 	MSS actually. Also added the window
  *					clamper.
@@ -61,7 +61,7 @@ static struct rtable *rt_base = NULL;
 /*
  *	Pointer to the loopback route
  */
- 
+
 static struct rtable *rt_loopback = NULL;
 
 /*
@@ -74,15 +74,15 @@ static void rt_del(unsigned long dst, char *devname)
 	unsigned long flags;
 
 	rp = &rt_base;
-	
+
 	/*
 	 *	This must be done with interrupts off because we could take
 	 *	an ICMP_REDIRECT.
 	 */
-	 
+
 	save_flags(flags);
 	cli();
-	while((r = *rp) != NULL) 
+	while((r = *rp) != NULL)
 	{
 		/* Make sure both the destination and the device match */
 		if ( r->rt_dst != dst ||
@@ -92,15 +92,15 @@ static void rt_del(unsigned long dst, char *devname)
 			continue;
 		}
 		*rp = r->rt_next;
-		
+
 		/*
 		 *	If we delete the loopback route update its pointer.
 		 */
-		 
+
 		if (rt_loopback == r)
 			rt_loopback = NULL;
 		kfree_s(r, sizeof(struct rtable));
-	} 
+	}
 	restore_flags(flags);
 }
 
@@ -109,7 +109,7 @@ static void rt_del(unsigned long dst, char *devname)
  *	Remove all routing table entries for a device. This is called when
  *	a device is downed.
  */
- 
+
 void ip_rt_flush(struct device *dev)
 {
 	struct rtable *r;
@@ -128,7 +128,7 @@ void ip_rt_flush(struct device *dev)
 		if (rt_loopback == r)
 			rt_loopback = NULL;
 		kfree_s(r, sizeof(struct rtable));
-	} 
+	}
 	restore_flags(flags);
 }
 
@@ -139,7 +139,7 @@ void ip_rt_flush(struct device *dev)
  *	number of zero 8-bit net numbers, otherwise we use the "default"
  *	masks judging by the destination address and our device netmask.
  */
- 
+
 static inline unsigned long default_mask(unsigned long dst)
 {
 	dst = ntohl(dst);
@@ -171,21 +171,21 @@ static unsigned long guess_mask(unsigned long dst, struct device * dev)
 /*
  *	Find the route entry through which our gateway will be reached
  */
- 
+
 static inline struct device * get_gw_dev(unsigned long gw)
 {
 	struct rtable * rt;
 
-	for (rt = rt_base ; ; rt = rt->rt_next) 
+	for (rt = rt_base ; ; rt = rt->rt_next)
 	{
 		if (!rt)
 			return NULL;
 		if ((gw ^ rt->rt_dst) & rt->rt_mask)
 			continue;
-		/* 
-		 *	Gateways behind gateways are a no-no 
+		/*
+		 *	Gateways behind gateways are a no-no
 		 */
-		 
+
 		if (rt->rt_flags & RTF_GATEWAY)
 			return NULL;
 		return rt->rt_dev;
@@ -199,7 +199,7 @@ static inline struct device * get_gw_dev(unsigned long gw)
  *	from the kernel (ICMP_REDIRECT) or via an ioctl call issued
  *	by the superuser.
  */
- 
+
 void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 	unsigned long gw, struct device *dev, unsigned short mtu, unsigned long window)
 {
@@ -210,60 +210,60 @@ void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 	/*
 	 *	A host is a unique machine and has no network bits.
 	 */
-	 
-	if (flags & RTF_HOST) 
+
+	if (flags & RTF_HOST)
 	{
 		mask = 0xffffffff;
-	} 
-	
+	}
+
 	/*
 	 *	Calculate the network mask
 	 */
-	 
-	else if (!mask) 
+
+	else if (!mask)
 	{
-		if (!((dst ^ dev->pa_addr) & dev->pa_mask)) 
+		if (!((dst ^ dev->pa_addr) & dev->pa_mask))
 		{
 			mask = dev->pa_mask;
 			flags &= ~RTF_GATEWAY;
-			if (flags & RTF_DYNAMIC) 
+			if (flags & RTF_DYNAMIC)
 			{
 				/*printk("Dynamic route to my own net rejected\n");*/
 				return;
 			}
-		} 
+		}
 		else
 			mask = guess_mask(dst, dev);
 		dst &= mask;
 	}
-	
+
 	/*
 	 *	A gateway must be reachable and not a local address
 	 */
-	 
+
 	if (gw == dev->pa_addr)
 		flags &= ~RTF_GATEWAY;
-		
-	if (flags & RTF_GATEWAY) 
+
+	if (flags & RTF_GATEWAY)
 	{
 		/*
-		 *	Don't try to add a gateway we can't reach.. 
+		 *	Don't try to add a gateway we can't reach..
 		 */
-		 
+
 		if (dev != get_gw_dev(gw))
 			return;
-			
+
 		flags |= RTF_GATEWAY;
-	} 
+	}
 	else
 		gw = 0;
-		
+
 	/*
 	 *	Allocate an entry and fill it in.
 	 */
-	 
+
 	rt = (struct rtable *) kmalloc(sizeof(struct rtable), GFP_ATOMIC);
-	if (rt == NULL) 
+	if (rt == NULL)
 	{
 		return;
 	}
@@ -280,7 +280,7 @@ void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 
 	if(rt->rt_flags & RTF_MSS)
 		rt->rt_mss = mtu;
-		
+
 	if(rt->rt_flags & RTF_WINDOW)
 		rt->rt_window = window;
 
@@ -295,14 +295,14 @@ void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 	cli();
 
 	/*
-	 *	Remove old route if we are getting a duplicate. 
+	 *	Remove old route if we are getting a duplicate.
 	 */
-	 
+
 	rp = &rt_base;
-	while ((r = *rp) != NULL) 
+	while ((r = *rp) != NULL)
 	{
-		if (r->rt_dst != dst || 
-		    r->rt_mask != mask) 
+		if (r->rt_dst != dst ||
+		    r->rt_mask != mask)
 		{
 			rp = &r->rt_next;
 			continue;
@@ -312,11 +312,11 @@ void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 			rt_loopback = NULL;
 		kfree_s(r, sizeof(struct rtable));
 	}
-	
+
 	/*
-	 *	Add the new route 
+	 *	Add the new route
 	 */
-	 
+
 	rp = &rt_base;
 	while ((r = *rp) != NULL) {
 		if ((r->rt_mask & mask) != mask)
@@ -325,18 +325,18 @@ void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 	}
 	rt->rt_next = r;
 	*rp = rt;
-	
+
 	/*
 	 *	Update the loopback route
 	 */
-	 
+
 	if ((rt->rt_dev->flags & IFF_LOOPBACK) && !rt_loopback)
 		rt_loopback = rt;
-		
+
 	/*
 	 *	Restore the interrupts and return
 	 */
-	 
+
 	restore_flags(cpuflags);
 	return;
 }
@@ -345,7 +345,7 @@ void ip_rt_add(short flags, unsigned long dst, unsigned long mask,
 /*
  *	Check if a mask is acceptable.
  */
- 
+
 static inline int bad_mask(unsigned long mask, unsigned long addr)
 {
 	if (addr & (mask = ~mask))
@@ -359,7 +359,7 @@ static inline int bad_mask(unsigned long mask, unsigned long addr)
 /*
  *	Process a route add request from the user
  */
- 
+
 static int rt_new(struct rtentry *r)
 {
 	int err;
@@ -370,8 +370,8 @@ static int rt_new(struct rtentry *r)
 	/*
 	 *	If a device is specified find it.
 	 */
-	 
-	if ((devname = r->rt_dev) != NULL) 
+
+	if ((devname = r->rt_dev) != NULL)
 	{
 		err = getname(devname, &devname);
 		if (err)
@@ -381,7 +381,7 @@ static int rt_new(struct rtentry *r)
 		if (!dev)
 			return -EINVAL;
 	}
-	
+
 	/*
 	 *	If the device isn't INET, don't allow it
 	 */
@@ -392,7 +392,7 @@ static int rt_new(struct rtentry *r)
 	/*
 	 *	Make local copies of the important bits
 	 */
-	 
+
 	flags = r->rt_flags;
 	daddr = ((struct sockaddr_in *) &r->rt_dst)->sin_addr.s_addr;
 	mask = ((struct sockaddr_in *) &r->rt_genmask)->sin_addr.s_addr;
@@ -402,15 +402,15 @@ static int rt_new(struct rtentry *r)
 	/*
 	 *	BSD emulation: Permits route add someroute gw one-of-my-addresses
 	 *	to indicate which iface. Not as clean as the nice Linux dev technique
-	 *	but people keep using it... 
+	 *	but people keep using it...
 	 */
-	 
-	if (!dev && (flags & RTF_GATEWAY)) 
+
+	if (!dev && (flags & RTF_GATEWAY))
 	{
 		struct device *dev2;
-		for (dev2 = dev_base ; dev2 != NULL ; dev2 = dev2->next) 
+		for (dev2 = dev_base ; dev2 != NULL ; dev2 = dev2->next)
 		{
-			if ((dev2->flags & IFF_UP) && dev2->pa_addr == gw) 
+			if ((dev2->flags & IFF_UP) && dev2->pa_addr == gw)
 			{
 				flags &= ~RTF_GATEWAY;
 				dev = dev2;
@@ -422,14 +422,14 @@ static int rt_new(struct rtentry *r)
 	/*
 	 *	Ignore faulty masks
 	 */
-	 
+
 	if (bad_mask(mask, daddr))
 		mask = 0;
 
 	/*
 	 *	Set the mask to nothing for host routes.
 	 */
-	 
+
 	if (flags & RTF_HOST)
 		mask = 0xffffffff;
 	else if (mask && r->rt_genmask.sa_family != AF_INET)
@@ -438,28 +438,28 @@ static int rt_new(struct rtentry *r)
 	/*
 	 *	You can only gateway IP via IP..
 	 */
-	 
-	if (flags & RTF_GATEWAY) 
+
+	if (flags & RTF_GATEWAY)
 	{
 		if (r->rt_gateway.sa_family != AF_INET)
 			return -EAFNOSUPPORT;
 		if (!dev)
 			dev = get_gw_dev(gw);
-	} 
+	}
 	else if (!dev)
 		dev = ip_dev_check(daddr);
 
 	/*
 	 *	Unknown device.
 	 */
-	 
+
 	if (dev == NULL)
 		return -ENETUNREACH;
 
 	/*
 	 *	Add the route
 	 */
-	 
+
 	ip_rt_add(flags, daddr, mask, gw, dev, r->rt_mss, r->rt_window);
 	return 0;
 }
@@ -476,7 +476,7 @@ static int rt_kill(struct rtentry *r)
 	int err;
 
 	trg = (struct sockaddr_in *) &r->rt_dst;
-	if ((devname = r->rt_dev) != NULL) 
+	if ((devname = r->rt_dev) != NULL)
 	{
 		err = getname(devname, &devname);
 		if (err)
@@ -489,10 +489,10 @@ static int rt_kill(struct rtentry *r)
 }
 
 
-/* 
+/*
  *	Called from the PROCfs module. This outputs /proc/net/route.
  */
- 
+
 int rt_get_info(char *buffer, char **start, off_t offset, int length)
 {
 	struct rtable *r;
@@ -504,12 +504,12 @@ int rt_get_info(char *buffer, char **start, off_t offset, int length)
 	len += sprintf(buffer,
 		 "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\n");
 	pos=len;
-  
+
 	/*
-	 *	This isn't quite right -- r->rt_dst is a struct! 
+	 *	This isn't quite right -- r->rt_dst is a struct!
 	 */
-	 
-	for (r = rt_base; r != NULL; r = r->rt_next) 
+
+	for (r = rt_base; r != NULL; r = r->rt_next)
 	{
         	size = sprintf(buffer+len, "%s\t%08lX\t%08lX\t%02X\t%d\t%lu\t%d\t%08lX\t%d\t%lu\n",
 			r->rt_dev->name, r->rt_dst, r->rt_gateway,
@@ -525,7 +525,7 @@ int rt_get_info(char *buffer, char **start, off_t offset, int length)
 		if(pos>offset+length)
 			break;
   	}
-  	
+
   	*start=buffer+(offset-begin);
   	len-=(offset-begin);
   	if(len>length)
@@ -536,37 +536,37 @@ int rt_get_info(char *buffer, char **start, off_t offset, int length)
 /*
  *	This is hackish, but results in better code. Use "-S" to see why.
  */
- 
+
 #define early_out ({ goto no_route; 1; })
 
 /*
- *	Route a packet. This needs to be fairly quick. Florian & Co. 
+ *	Route a packet. This needs to be fairly quick. Florian & Co.
  *	suggested a unified ARP and IP routing cache. Done right its
  *	probably a brilliant idea. I'd actually suggest a unified
  *	ARP/IP routing/Socket pointer cache. Volunteers welcome
  */
- 
+
 struct rtable * ip_rt_route(unsigned long daddr, struct options *opt, unsigned long *src_addr)
 {
 	struct rtable *rt;
 
-	for (rt = rt_base; rt != NULL || early_out ; rt = rt->rt_next) 
+	for (rt = rt_base; rt != NULL || early_out ; rt = rt->rt_next)
 	{
 		if (!((rt->rt_dst ^ daddr) & rt->rt_mask))
 			break;
 		/*
-		 *	broadcast addresses can be special cases.. 
+		 *	broadcast addresses can be special cases..
 		 */
 		if (rt->rt_flags & RTF_GATEWAY)
-			continue;		 
+			continue;
 		if ((rt->rt_dev->flags & IFF_BROADCAST) &&
 		    (rt->rt_dev->pa_brdaddr == daddr))
 			break;
 	}
-	
+
 	if(src_addr!=NULL)
-		*src_addr= rt->rt_dev->pa_addr;
-		
+		*src_addr = rt->rt_dev->pa_addr;
+
 	if (daddr == rt->rt_dev->pa_addr) {
 		if ((rt = rt_loopback) == NULL)
 			goto no_route;
@@ -581,28 +581,28 @@ struct rtable * ip_rt_local(unsigned long daddr, struct options *opt, unsigned l
 {
 	struct rtable *rt;
 
-	for (rt = rt_base; rt != NULL || early_out ; rt = rt->rt_next) 
+	for (rt = rt_base; rt != NULL || early_out ; rt = rt->rt_next) // 遍历路由表
 	{
 		/*
 		 *	No routed addressing.
 		 */
 		if (rt->rt_flags&RTF_GATEWAY)
 			continue;
-			
+
 		if (!((rt->rt_dst ^ daddr) & rt->rt_mask))
 			break;
 		/*
-		 *	broadcast addresses can be special cases.. 
+		 *	broadcast addresses can be special cases..
 		 */
-		 
+
 		if ((rt->rt_dev->flags & IFF_BROADCAST) &&
 		     rt->rt_dev->pa_brdaddr == daddr)
 			break;
 	}
-	
+
 	if(src_addr!=NULL)
-		*src_addr= rt->rt_dev->pa_addr;
-		
+		*src_addr = rt->rt_dev->pa_addr; // 这里应该有bug, 没判断rt是否为NULL
+
 	if (daddr == rt->rt_dev->pa_addr) {
 		if ((rt = rt_loopback) == NULL)
 			goto no_route;
@@ -616,7 +616,7 @@ no_route:
 /*
  *	Backwards compatibility
  */
- 
+
 static int ip_get_old_rtent(struct old_rtentry * src, struct rtentry * rt)
 {
 	int err;
@@ -640,13 +640,26 @@ static int ip_get_old_rtent(struct old_rtentry * src, struct rtentry * rt)
 /*
  *	Handle IP routing ioctl calls. These are used to manipulate the routing tables
  */
- 
+/*
+添加路由
+route add -net 192.168.0.0/24 gw 192.168.0.1
+route add -host 192.168.1.1 dev 192.168.0.1
+删除路由
+route del -net 192.168.0.0/24 gw 192.168.0.1
+
+add   增加路由
+del   删除路由
+-net  设置到某个网段的路由
+-host 设置到某台主机的路由
+gw    出口网关 IP地址
+dev   出口网关 物理设备名
+*/
 int ip_rt_ioctl(unsigned int cmd, void *arg)
 {
 	int err;
 	struct rtentry rt;
 
-	switch(cmd) 
+	switch(cmd)
 	{
 		case SIOCADDRTOLD:	/* Old style add route */
 		case SIOCDELRTOLD:	/* Old style delete route */
