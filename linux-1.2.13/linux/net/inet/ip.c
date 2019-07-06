@@ -225,6 +225,7 @@ int ip_id_count = 0;
  * protocol knows what it's doing, otherwise it uses the
  * routing/ARP tables to select a device struct.
  */
+// 创建IP头部
 int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long daddr,
 		struct device **dev, int type, struct options *opt, int len, int tos, int ttl)
 {
@@ -1256,7 +1257,7 @@ void ip_fragment(struct sock *sk, struct sk_buff *skb, struct device *dev, int i
 /*
  *	Forward an IP datagram to its next destination.
  */
-
+// is_frag: 表示是否分片
 static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 {
 	struct device *dev2;	/* Output device */
@@ -1292,8 +1293,8 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 	 */
 
 	iph = skb->h.iph;
-	iph->ttl--;
-	if (iph->ttl <= 0)
+	iph->ttl--;         // 每经过一个路由生命周期减一
+	if (iph->ttl <= 0)  // 如果包已经过期
 	{
 		/* Tell the sender its packet died... */
 		icmp_send(skb, ICMP_TIME_EXCEEDED, ICMP_EXC_TTL, 0, dev);
@@ -1564,7 +1565,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	and don't go via ip_chk_addr. Note: brd is set to IS_MYADDR at
 	 *	function entry.
 	 */
-
+	// 目的地址不是当前网卡设备的IP地址, 而目的地址不是一个广播地址
 	if ( iph->daddr != skb->dev->pa_addr && (brd = ip_chk_addr(iph->daddr)) == 0)
 	{
 		/*

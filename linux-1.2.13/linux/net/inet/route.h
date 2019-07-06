@@ -26,12 +26,12 @@
 
 
 /* This is an entry in the IP routing table. */
-struct rtable 
+struct rtable
 {
 	struct rtable		*rt_next;
-	unsigned long		rt_dst;
-	unsigned long		rt_mask;
-	unsigned long		rt_gateway;
+	unsigned long		rt_dst;      // 目的地址
+	unsigned long		rt_mask;     // 子掩码
+	unsigned long		rt_gateway;  // 网关
 	unsigned char		rt_flags;
 	unsigned char		rt_metric;
 	short			rt_refcnt;
