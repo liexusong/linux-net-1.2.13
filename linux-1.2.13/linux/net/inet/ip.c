@@ -1862,7 +1862,7 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 	 *	Add an IP checksum
 	 */
 
-	ip_send_check(iph);
+	ip_send_check(iph); // 添加校验和
 
 	/*
 	 *	Print the frame when debugging
