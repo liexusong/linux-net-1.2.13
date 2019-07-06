@@ -369,6 +369,7 @@ do_options(struct iphdr *iph, struct options *opt)
   opt->tcc                     = 0;
   return(0);
 
+#if 0
   /* Advance the pointer to start at the options. */
   buff = (unsigned char *)(iph + 1);
 
@@ -495,6 +496,8 @@ do_options(struct iphdr *iph, struct options *opt)
   }
 
   return(0);
+
+#endif
 }
 
 /*
@@ -1314,7 +1317,7 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 	 * and give it to the IP sender for further processing.
 	 */
 
-	rt = ip_rt_route(iph->daddr, NULL, NULL);
+	rt = ip_rt_route(iph->daddr, NULL, NULL);  // 找到IP对应的路由设置
 	if (rt == NULL)
 	{
 		/*
@@ -1334,7 +1337,7 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 	 * IP address itself- we seem to be connected directly...
 	 */
 
-	raddr = rt->rt_gateway;
+	raddr = rt->rt_gateway; // 路由的网关
 
 	if (raddr != 0)
 	{
@@ -1342,6 +1345,7 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 		 *	There is a gateway so find the correct route for it.
 		 *	Gateways cannot in turn be gatewayed.
 		 */
+		// 找到网关真正的路由
 		rt = ip_rt_route(raddr, NULL, NULL);
 		if (rt == NULL)
 		{
@@ -1361,7 +1365,7 @@ static void ip_forward(struct sk_buff *skb, struct device *dev, int is_frag)
 	 *	Having picked a route we can now send the frame out.
 	 */
 
-	dev2 = rt->rt_dev;
+	dev2 = rt->rt_dev; // 真正的设备
 
 	/*
 	 *	In IP you never have to forward a frame on the interface that it
@@ -1902,6 +1906,7 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 			printk("ip.c: link3 != NULL\n");
 			skb->link3 = NULL;
 		}
+
 		if (sk->send_head == NULL)
 		{
 			sk->send_tail = skb;
