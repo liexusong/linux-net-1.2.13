@@ -59,14 +59,14 @@
  */
 struct sock {
   struct options		*opt;
-  volatile unsigned long	wmem_alloc;
-  volatile unsigned long	rmem_alloc;
-  unsigned long			write_seq;
-  unsigned long			sent_seq;
-  unsigned long			acked_seq;
-  unsigned long			copied_seq;
-  unsigned long			rcv_ack_seq;
-  unsigned long			window_seq;
+  volatile unsigned long	wmem_alloc;  // 当前写缓冲区大小，该值不可大于系统规定的最大值
+  volatile unsigned long	rmem_alloc;  // 当前读缓冲区大小，该值不可大于系统规定最大值
+  unsigned long			write_seq;    // 表示应用程序下一次写数据时所对应的第一个字节的序列号，write_queue 队列的序列号
+  unsigned long			sent_seq;     // 表示本地将要发送的下一个数据包中第一个字节对应的序列号
+  unsigned long			acked_seq;    // 表示本地希望从远端接收的下一个数据的序列号
+  unsigned long			copied_seq;   // 应用程序有待读取但尚未读取的数据的第一个字节的序列号
+  unsigned long			rcv_ack_seq;  // 表示目前本地接收到的远端对本地发送数据的应答序列号，表示本地已经发送的小于此序列号的所有数据已被远端成功接收
+  unsigned long			window_seq;   // sent_seq 值加上远端窗口的大小，本地将要发送的数据包的最后一个字节的序列号不可大于此值
   unsigned long			fin_seq;
   unsigned long			urg_seq;
   unsigned long			urg_data;
@@ -161,7 +161,7 @@ struct sock {
   unsigned char			ax25_n2;
   unsigned short		ax25_t1,ax25_t2,ax25_t3;
   ax25_digi			*ax25_digipeat;
-#endif  
+#endif
 #ifdef CONFIG_ATALK
   struct atalk_sock		at;
 #endif
@@ -174,12 +174,12 @@ struct sock {
   struct timer_list		retransmit_timer;	/* TCP retransmit timer */
   struct timer_list		ack_timer;		/* TCP delayed ack timer */
   int				ip_xmit_timeout;	/* Why the timeout is running */
-#ifdef CONFIG_IP_MULTICAST  
+#ifdef CONFIG_IP_MULTICAST
   int				ip_mc_ttl;			/* Multicasting TTL */
   int				ip_mc_loop;			/* Loopback (not implemented yet) */
   char				ip_mc_name[MAX_ADDR_LEN];	/* Multicast device name */
   struct ip_mc_socklist		*ip_mc_list;			/* Group array */
-#endif  
+#endif
 
   /* This part is used for the timeout functions (timer.c). */
   int				timeout;	/* What are we waiting for? */
@@ -188,13 +188,13 @@ struct sock {
 
   /* identd */
   struct socket			*socket;
-  
+
   /* Callbacks */
   void				(*state_change)(struct sock *sk);
   void				(*data_ready)(struct sock *sk,int bytes);
   void				(*write_space)(struct sock *sk);
   void				(*error_report)(struct sock *sk);
-  
+
 };
 
 struct proto {
@@ -250,7 +250,7 @@ struct proto {
   int			(*setsockopt)(struct sock *sk, int level, int optname,
   				 char *optval, int optlen);
   int			(*getsockopt)(struct sock *sk, int level, int optname,
-  				char *optval, int *option);  	 
+  				char *optval, int *option);
   unsigned short	max_header;
   unsigned long		retransmits;
   struct sock *		sock_array[SOCK_ARRAY_SIZE];
@@ -275,7 +275,7 @@ struct proto {
 
 extern void			destroy_sock(struct sock *sk);
 extern unsigned short		get_new_socknum(struct proto *, unsigned short);
-extern void			put_sock(unsigned short, struct sock *); 
+extern void			put_sock(unsigned short, struct sock *);
 extern void			release_sock(struct sock *sk);
 extern struct sock		*get_sock(struct proto *, unsigned short,
 					  unsigned long, unsigned short,

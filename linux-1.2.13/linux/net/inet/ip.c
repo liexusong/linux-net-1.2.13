@@ -252,7 +252,7 @@ int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long dadd
 		if(skb->localroute)
 			rt = ip_rt_local(daddr, &optmem, &src);
 		else
-			rt = ip_rt_route(daddr, &optmem, &src);
+			rt = ip_rt_route(daddr, &optmem, &src); // 根据目标IP找到一个转发的路由
 		if (rt == NULL)
 		{
 			ip_statistics.IpOutNoRoutes++;
@@ -264,8 +264,8 @@ int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long dadd
 		 *	If the frame is from us and going off machine it MUST MUST MUST
 		 *	have the output device ip address and never the loopback
 		 */
-		if (LOOPBACK(saddr) && !LOOPBACK(daddr))
-			saddr = src;/*rt->rt_dev->pa_addr;*/
+		if (LOOPBACK(saddr) && !LOOPBACK(daddr)) // 如果源地址是回环地址, 但目标地址不是
+			saddr = src;/*rt->rt_dev->pa_addr;*/ // 把源地址转换成设备的地址
 		raddr = rt->rt_gateway;
 
 		opt = &optmem;
@@ -369,6 +369,7 @@ do_options(struct iphdr *iph, struct options *opt)
   opt->tcc                     = 0;
   return(0);
 
+#if 0
   /* Advance the pointer to start at the options. */
   buff = (unsigned char *)(iph + 1);
 
@@ -495,6 +496,7 @@ do_options(struct iphdr *iph, struct options *opt)
   }
 
   return(0);
+#endif
 }
 
 /*
@@ -1566,13 +1568,13 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	function entry.
 	 */
 	// 目的地址不是当前网卡设备的IP地址, 而目的地址不是一个广播地址
-	if ( iph->daddr != skb->dev->pa_addr && (brd = ip_chk_addr(iph->daddr)) == 0)
+	if (iph->daddr != skb->dev->pa_addr && (brd = ip_chk_addr(iph->daddr)) == 0)
 	{
 		/*
 		 *	Don't forward multicast or broadcast frames.
 		 */
 
-		if(skb->pkt_type!=PACKET_HOST || brd==IS_BROADCAST)
+		if(skb->pkt_type != PACKET_HOST || brd==IS_BROADCAST)
 		{
 			kfree_skb(skb,FREE_WRITE);
 			return 0;
@@ -1583,7 +1585,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		 */
 
 #ifdef CONFIG_IP_FORWARD
-		ip_forward(skb, dev, is_frag);
+		ip_forward(skb, dev, is_frag); // 转发到其他路由
 #else
 /*		printk("Machine %lx tried to use us as a forwarder to %lx but we have forwarding disabled!\n",
 			iph->saddr,iph->daddr);*/
@@ -1745,7 +1747,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 /*
  *	Loop a packet back to the sender.
  */
-
+// 发送包给发送者(一般都是127.0.0.1之类的本地地址)
 static void ip_loopback(struct device *old_dev, struct sk_buff *skb)
 {
 	extern struct device loopback_dev;

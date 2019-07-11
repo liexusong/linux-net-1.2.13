@@ -12,14 +12,14 @@
  *		Mark Evans, <evansmp@uhura.aston.ac.uk>
  *		Florian  La Roche, <rzsfl@rz.uni-sb.de>
  *		Alan Cox, <gw4pts@gw4pts.ampr.org>
- * 
+ *
  * Fixes:
  *		Mr Linux	: Arp problems
  *		Alan Cox	: Generic queue tidyup (very tiny here)
  *		Alan Cox	: eth_header ntohs should be htons
  *		Alan Cox	: eth_rebuild_header missing an htons and
  *				  minor other things.
- *		Tegge		: Arp bug fixes. 
+ *		Tegge		: Arp bug fixes.
  *		Florian		: Removed many unnecessary functions, code cleanup
  *				  and changes for new arp and skbuff.
  *		Alan Cox	: Redid header building to reflect new format.
@@ -55,9 +55,9 @@ void eth_setup(char *str, int *ints)
 
 	if (!str || !*str)
 		return;
-	while (d) 
+	while (d)
 	{
-		if (!strcmp(str,d->name)) 
+		if (!strcmp(str,d->name))
 		{
 			if (ints[0] > 0)
 				d->irq=ints[1];
@@ -75,7 +75,7 @@ void eth_setup(char *str, int *ints)
 
 
 /*
- *	 Create the Ethernet MAC header for an arbitrary protocol layer 
+ *	 Create the Ethernet MAC header for an arbitrary protocol layer
  *
  *	saddr=NULL	means use device source address
  *	daddr=NULL	means leave destination address (eg unresolved arp)
@@ -87,41 +87,41 @@ int eth_header(unsigned char *buff, struct device *dev, unsigned short type,
 {
 	struct ethhdr *eth = (struct ethhdr *)buff;
 
-	/* 
+	/*
 	 *	Set the protocol type. For a packet of type ETH_P_802_3 we put the length
 	 *	in here instead. It is up to the 802.2 layer to carry protocol information.
 	 */
-	
-	if(type!=ETH_P_802_3) 
+
+	if(type!=ETH_P_802_3)
 		eth->h_proto = htons(type);
 	else
 		eth->h_proto = htons(len);
 
 	/*
-	 *	Set the source hardware address. 
+	 *	Set the source hardware address.
 	 */
-	 
+
 	if(saddr)
 		memcpy(eth->h_source,saddr,dev->addr_len);
 	else
 		memcpy(eth->h_source,dev->dev_addr,dev->addr_len);
 
 	/*
-	 *	Anyway, the loopback-device should never use this function... 
+	 *	Anyway, the loopback-device should never use this function...
 	 */
 
-	if (dev->flags & IFF_LOOPBACK) 
+	if (dev->flags & IFF_LOOPBACK)
 	{
 		memset(eth->h_dest, 0, dev->addr_len);
 		return(dev->hard_header_len);
 	}
-	
+
 	if(daddr)
 	{
 		memcpy(eth->h_dest,daddr,dev->addr_len);
 		return dev->hard_header_len;
 	}
-	
+
 	return -dev->hard_header_len;
 }
 
@@ -131,7 +131,7 @@ int eth_header(unsigned char *buff, struct device *dev, unsigned short type,
  *	(or in future other address resolution) has completed on this
  *	sk_buff. We now let ARP fill in the other fields.
  */
- 
+
 int eth_rebuild_header(void *buff, struct device *dev, unsigned long dst,
 			struct sk_buff *skb)
 {
@@ -140,8 +140,8 @@ int eth_rebuild_header(void *buff, struct device *dev, unsigned long dst,
 	/*
 	 *	Only ARP/IP is currently supported
 	 */
-	 
-	if(eth->h_proto != htons(ETH_P_IP)) 
+
+	if(eth->h_proto != htons(ETH_P_IP))
 	{
 		printk("eth_rebuild_header: Don't know how to resolve type %d addresses?\n",(int)eth->h_proto);
 		memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
@@ -151,25 +151,25 @@ int eth_rebuild_header(void *buff, struct device *dev, unsigned long dst,
 	/*
 	 *	Try and get ARP to resolve the header.
 	 */
-#ifdef CONFIG_INET	 
+#ifdef CONFIG_INET
 	return arp_find(eth->h_dest, dst, dev, dev->pa_addr, skb)? 1 : 0;
 #else
-	return 0;	
-#endif	
+	return 0;
+#endif
 }
 
 
 /*
- *	Determine the packet's protocol ID. The rule here is that we 
+ *	Determine the packet's protocol ID. The rule here is that we
  *	assume 802.3 if the type field is short enough to be a length.
  *	This is normal practice and works for any 'now in use' protocol.
  */
- 
+
 unsigned short eth_type_trans(struct sk_buff *skb, struct device *dev)
 {
 	struct ethhdr *eth = (struct ethhdr *) skb->data;
 	unsigned char *rawp;
-	
+
 	if(*eth->h_dest&1)
 	{
 		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
@@ -177,20 +177,20 @@ unsigned short eth_type_trans(struct sk_buff *skb, struct device *dev)
 		else
 			skb->pkt_type=PACKET_MULTICAST;
 	}
-	
+
 	if(dev->flags&IFF_PROMISC)
 	{
 		if(memcmp(eth->h_dest,dev->dev_addr, ETH_ALEN))
 			skb->pkt_type=PACKET_OTHERHOST;
 	}
-	
+
 	if (ntohs(eth->h_proto) >= 1536)
 		return eth->h_proto;
-		
+
 	rawp = (unsigned char *)(eth + 1);
-	
+
 	if (*(unsigned short *)rawp == 0xFFFF)
 		return htons(ETH_P_802_3);
-		
+
 	return htons(ETH_P_802_2);
 }

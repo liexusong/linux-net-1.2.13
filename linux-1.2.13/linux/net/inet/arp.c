@@ -612,14 +612,18 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
  *	Extract fields
  */
 
-	hlen  = dev->addr_len;
+	hlen = dev->addr_len;
 	htype = dev->type;
 
 	sha=arp_ptr;                   /* sender hardware address */
+
 	arp_ptr+=hlen;
 	memcpy(&sip,arp_ptr,4);        /* sender IP address	*/
+
 	arp_ptr+=4;
+
 	tha=arp_ptr;                   /* target hardware address */
+
 	arp_ptr+=hlen;
 	memcpy(&tip,arp_ptr,4);        /* target IP address */
 
@@ -674,7 +678,7 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 /*
  * Only reply for the real device address or when it's in our proxy tables
  */
-		if(tip!=dev->pa_addr)
+		if(tip != dev->pa_addr)
 		{
 /*
  * 	To get in here, it is a request for someone else.  We need to
@@ -694,13 +698,14 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 			     having to use a huge number of proxy arp entries
 			     and having to keep them uptodate.
 			     */
-			  if (proxy_entry->dev != dev && proxy_entry->htype == htype &&
-			      !((proxy_entry->ip^tip)&proxy_entry->mask))
+			  if (proxy_entry->dev != dev &&
+			  	  proxy_entry->htype == htype &&
+			      !((proxy_entry->ip^tip) & proxy_entry->mask))
 			    break;
 
 			}
-			if (proxy_entry)
-			{
+
+			if (proxy_entry) {
 				memcpy(ha, proxy_entry->ha, hlen);
 				sti();
 				arp_send(ARPOP_REPLY,ETH_P_ARP,sip,dev,tip,sha,ha);
@@ -733,7 +738,7 @@ int arp_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 	hash = HASH(sip);
 	cli();
-	for(entry=arp_tables[hash];entry;entry=entry->next)
+	for (entry=arp_tables[hash];entry;entry=entry->next)
 		if(entry->ip==sip && entry->htype==htype)
 			break;
 
@@ -860,8 +865,8 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 
 	if (entry != NULL) 	/* It exists */
 	{
-	        if (!(entry->flags & ATF_COM))
-	        {
+	    if (!(entry->flags & ATF_COM))
+	    {
 			/*
 			 *	A request was already send, but no reply yet. Thus
 			 *	queue the packet with the previous attempt
@@ -930,8 +935,7 @@ int arp_find(unsigned char *haddr, unsigned long paddr, struct device *dev,
 	 *	If we didn't find an entry, we will try to send an ARP packet.
 	 */
 
-	arp_send(ARPOP_REQUEST, ETH_P_ARP, paddr, dev, saddr, NULL,
-		 dev->dev_addr);
+	arp_send(ARPOP_REQUEST, ETH_P_ARP, paddr, dev, saddr, NULL, dev->dev_addr);
 
 	return 1;
 }

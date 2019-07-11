@@ -564,7 +564,7 @@ struct rtable * ip_rt_route(unsigned long daddr, struct options *opt, unsigned l
 			break;
 	}
 
-	if(src_addr!=NULL)
+	if(src_addr != NULL)
 		*src_addr = rt->rt_dev->pa_addr;
 
 	if (daddr == rt->rt_dev->pa_addr) {
@@ -586,7 +586,7 @@ struct rtable * ip_rt_local(unsigned long daddr, struct options *opt, unsigned l
 		/*
 		 *	No routed addressing.
 		 */
-		if (rt->rt_flags&RTF_GATEWAY)
+		if (rt->rt_flags & RTF_GATEWAY)
 			continue;
 
 		if (!((rt->rt_dst ^ daddr) & rt->rt_mask))
@@ -601,7 +601,7 @@ struct rtable * ip_rt_local(unsigned long daddr, struct options *opt, unsigned l
 	}
 
 	if(src_addr!=NULL)
-		*src_addr = rt->rt_dev->pa_addr; // 这里应该有bug, 没判断rt是否为NULL
+		*src_addr = rt->rt_dev->pa_addr;
 
 	if (daddr == rt->rt_dev->pa_addr) {
 		if ((rt = rt_loopback) == NULL)

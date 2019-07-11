@@ -22,10 +22,10 @@
 
 
 struct tcphdr {
-	__u16	source;
-	__u16	dest;
-	__u32	seq;
-	__u32	ack_seq;
+	__u16	source;    // 来源端口
+	__u16	dest;      // 目标端口
+	__u32	seq;       // 发送方的序列号
+	__u32	ack_seq;   // 接收方 ack 的序列号
 #if defined(LITTLE_ENDIAN_BITFIELD)
 	__u16	res1:4,
 		doff:4,
@@ -37,7 +37,7 @@ struct tcphdr {
 		urg:1,
 		res2:2;
 #elif defined(BIG_ENDIAN_BITFIELD)
-	__u16	doff:4,
+	__u16	doff:4,    // header的长度(需要乘以4)
 		res1:4,
 		res2:2,
 		urg:1,
@@ -48,10 +48,10 @@ struct tcphdr {
 		fin:1;
 #else
 #error	"Adjust your <asm/byteorder.h> defines"
-#endif	
-	__u16	window;
-	__u16	check;
-	__u16	urg_ptr;
+#endif
+	__u16	window;  // 对端窗口还有多少空间
+	__u16	check;   // 校验和
+	__u16	urg_ptr; // 紧急指针
 };
 
 
