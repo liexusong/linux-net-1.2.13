@@ -62,10 +62,10 @@ extern char empty_zero_page[PAGE_SIZE];
 /*
  * This is set up by the setup-routine at boot-time
  */
-#define PARAM	empty_zero_page
-#define EXT_MEM_K (*(unsigned short *) (PARAM+2))
-#define DRIVE_INFO (*(struct drive_info_struct *) (PARAM+0x80))
-#define SCREEN_INFO (*(struct screen_info *) (PARAM+0))
+#define PARAM	empty_zero_page                                  // 指向零页
+#define EXT_MEM_K (*(unsigned short *) (PARAM+2))                // 扩展内存大小(1mb以后的内存)
+#define DRIVE_INFO (*(struct drive_info_struct *) (PARAM+0x80))  // 设备信息
+#define SCREEN_INFO (*(struct screen_info *) (PARAM+0))          // 屏幕信息
 #define MOUNT_ROOT_RDONLY (*(unsigned short *) (PARAM+0x1F2))
 #define RAMDISK_SIZE (*(unsigned short *) (PARAM+0x1F8))
 #define ORIG_ROOT_DEV (*(unsigned short *) (PARAM+0x1FC))
@@ -86,8 +86,8 @@ void setup_arch(char **cmdline_p,
  	drive_info = DRIVE_INFO;
  	screen_info = SCREEN_INFO;
 	aux_device_present = AUX_DEVICE_INFO;
-	memory_end = (1<<20) + (EXT_MEM_K<<10);
-	memory_end &= PAGE_MASK;
+	memory_end = (1<<20) + (EXT_MEM_K<<10);  // 物理内存大小
+	memory_end &= PAGE_MASK;                 // 页对齐
 	ramdisk_size = RAMDISK_SIZE;
 #ifdef CONFIG_MAX_16M
 	if (memory_end > 16*1024*1024)
@@ -95,7 +95,7 @@ void setup_arch(char **cmdline_p,
 #endif
 	if (MOUNT_ROOT_RDONLY)
 		root_mountflags |= MS_RDONLY;
-	memory_start = (unsigned long) &end;
+	memory_start = (unsigned long) &end;   // 内核影像之后的第一个字节
 	init_task.mm->start_code = TASK_SIZE;
 	init_task.mm->end_code = TASK_SIZE + (unsigned long) &etext;
 	init_task.mm->end_data = TASK_SIZE + (unsigned long) &edata;

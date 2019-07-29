@@ -346,6 +346,8 @@ asmlinkage void start_kernel(void)
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
  */
+	// memory_start: 可用物理内存的开始
+	// memory_end: 可用物理内存的结束
 	setup_arch(&command_line, &memory_start, &memory_end);
 	memory_start = paging_init(memory_start,memory_end);
 	trap_init();
