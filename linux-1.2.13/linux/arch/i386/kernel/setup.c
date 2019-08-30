@@ -95,7 +95,7 @@ void setup_arch(char **cmdline_p,
 #endif
 	if (MOUNT_ROOT_RDONLY)
 		root_mountflags |= MS_RDONLY;
-	memory_start = (unsigned long) &end;   // 内核影像之后的第一个字节
+	memory_start = (unsigned long) &end;   // 内核影像之后的第一个字节(编译后是虚拟地址)
 	init_task.mm->start_code = TASK_SIZE;
 	init_task.mm->end_code = TASK_SIZE + (unsigned long) &etext;
 	init_task.mm->end_data = TASK_SIZE + (unsigned long) &edata;
