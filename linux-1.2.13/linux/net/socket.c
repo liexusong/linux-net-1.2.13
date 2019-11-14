@@ -134,7 +134,6 @@ static int move_addr_to_user(void *kaddr, int klen, void *uaddr, int *ulen)
 	int err;
 	int len;
 
-
 	if((err=verify_area(VERIFY_WRITE,ulen,sizeof(*ulen)))<0)
 		return err;
 	len=get_fs_long(ulen);
@@ -165,7 +164,7 @@ static int get_fd(struct inode *inode)
 	 *	Find a file descriptor suitable for return to the user.
 	 */
 
-	file = get_empty_filp();
+	file = get_empty_filp(); // 获取一个空闲的file结构
 	if (!file)
 		return(-1);
 
@@ -180,7 +179,7 @@ static int get_fd(struct inode *inode)
 
 	FD_CLR(fd, &current->files->close_on_exec);
 		current->files->fd[fd] = file;
-	file->f_op = &socket_file_ops;
+	file->f_op = &socket_file_ops; // 设置文件操作接口列表
 	file->f_mode = 3;
 	file->f_flags = O_RDWR;
 	file->f_count = 1;
@@ -234,7 +233,7 @@ struct socket *sock_alloc(void)
 	struct inode * inode;
 	struct socket * sock;
 
-	inode = get_empty_inode();
+	inode = get_empty_inode(); // 获取一个空闲的inode
 	if (!inode)
 		return NULL;
 
@@ -488,6 +487,9 @@ static int sock_fasync(struct inode *inode, struct file *filp, int on)
 	return 0;
 }
 
+//-------------------------------
+// 通知进程有IO事件(发送SIGIO信号)
+//-------------------------------
 int sock_wake_async(struct socket *sock, int how)
 {
 	if (!sock || !sock->fasync_list)

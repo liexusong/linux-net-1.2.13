@@ -155,7 +155,6 @@ unsigned short get_new_socknum(struct proto *prot, unsigned short base)
 /*
  *	Add a socket into the socket tables by number.
  */
-
 void put_sock(unsigned short num, struct sock *sk)
 {
 	struct sock *sk1;
@@ -182,6 +181,7 @@ void put_sock(unsigned short num, struct sock *sk)
 		return;
 	}
 	restore_flags(flags);
+	// mask = 11111111000000000000000000000000
 	for(mask = 0xff000000; mask != 0xffffffff; mask = (mask >> 8) | mask)
 	{
 		if ((mask & sk->saddr) &&
@@ -263,7 +263,7 @@ static void remove_sock(struct sock *sk1)
 /*
  *	Destroy an AF_INET socket
  */
-
+// 释放一个socket
 void destroy_sock(struct sock *sk)
 {
 	struct sk_buff *skb;
@@ -524,20 +524,20 @@ static void def_callback3(struct sock *sk)
 static int inet_create(struct socket *sock, int protocol)
 {
 	struct sock *sk;
-	struct proto *prot;
+	struct proto *prot; // 传输层协议操作函数列表
 	int err;
 
-	sk = (struct sock *) kmalloc(sizeof(*sk), GFP_KERNEL);
+	sk = (struct sock *) kmalloc(sizeof(*sk), GFP_KERNEL); // 创建sock对象
 	if (sk == NULL)
 		return(-ENOBUFS);
 	sk->num = 0;
 	sk->reuse = 0;
 	switch(sock->type)
 	{
+		// TCP协议
 		case SOCK_STREAM:
 		case SOCK_SEQPACKET:
-			if (protocol && protocol != IPPROTO_TCP)
-			{
+			if (protocol && protocol != IPPROTO_TCP) {
 				kfree_s((void *)sk, sizeof(*sk));
 				return(-EPROTONOSUPPORT);
 			}
@@ -546,9 +546,9 @@ static int inet_create(struct socket *sock, int protocol)
 			prot = &tcp_prot;
 			break;
 
+		// UDP协议
 		case SOCK_DGRAM:
-			if (protocol && protocol != IPPROTO_UDP)
-			{
+			if (protocol && protocol != IPPROTO_UDP) {
 				kfree_s((void *)sk, sizeof(*sk));
 				return(-EPROTONOSUPPORT);
 			}
@@ -557,6 +557,7 @@ static int inet_create(struct socket *sock, int protocol)
 			prot=&udp_prot;
 			break;
 
+		// 原生套接字
 		case SOCK_RAW:
 			if (!suser())
 			{
@@ -577,6 +578,7 @@ static int inet_create(struct socket *sock, int protocol)
 			sk->num = protocol;
 			break;
 
+		// 包套接字
 		case SOCK_PACKET:
 			if (!suser())
 			{
@@ -622,7 +624,7 @@ static int inet_create(struct socket *sock, int protocol)
 	sk->urg_seq = 0;
 	sk->urg_data = 0;
 	sk->proc = 0;
-	sk->rtt = 0;				/*TCP_WRITE_TIME << 3;*/
+	sk->rtt = 0;					/*TCP_WRITE_TIME << 3;*/
 	sk->rto = TCP_TIMEOUT_INIT;		/*TCP_WRITE_TIME*/
 	sk->mdev = 0;
 	sk->backoff = 0;
@@ -766,13 +768,13 @@ static int inet_release(struct socket *sock, struct socket *peer)
 	if (sk == NULL)
 		return(0);
 
-	sk->state_change(sk);
+	sk->state_change(sk); // 唤醒等待此socket的进行
 
 	/* Start closing the connection.  This may take a while. */
 
 #ifdef CONFIG_IP_MULTICAST
 	/* Applications forget to leave groups before exiting */
-	ip_mc_drop_socket(sk);
+	ip_mc_drop_socket(sk); // 退出多播组
 #endif
 	/*
 	 * If linger is set, we don't return until the close
@@ -782,10 +784,10 @@ static int inet_release(struct socket *sock, struct socket *peer)
 	 * If the close is due to the process exiting, we never
 	 * linger..
 	 */
-
+	// 是否需要等待关闭完成, linger等于1是表示需要等待
 	if (sk->linger == 0 || (current->flags & PF_EXITING))
 	{
-		sk->prot->close(sk,0);
+		sk->prot->close(sk, 0);
 		sk->dead = 1;
 	}
 	else
@@ -972,10 +974,11 @@ static int inet_connect(struct socket *sock, struct sockaddr * uaddr,
 		return -err;
 	}
 
-	if (sk->state != TCP_ESTABLISHED &&(flags & O_NONBLOCK))
+	if (sk->state != TCP_ESTABLISHED && (flags & O_NONBLOCK))
 	  	return(-EINPROGRESS);
 
 	cli(); /* avoid the race condition */
+	// 等待连接完成
 	while(sk->state == TCP_SYN_SENT || sk->state == TCP_SYN_RECV)
 	{
 		interruptible_sleep_on(sk->sleep);
@@ -1043,14 +1046,14 @@ static int inet_accept(struct socket *sock, struct socket *newsock, int flags)
 		return(-EOPNOTSUPP);
 
 	/* Restore the state if we have been interrupted, and then returned. */
-	if (sk1->pair != NULL )
+	if (sk1->pair != NULL) // 如果accept被信号中断了, 会把sock放置在pair字段中
 	{
 		sk2 = sk1->pair;
 		sk1->pair = NULL;
 	}
 	else
 	{
-		sk2 = sk1->prot->accept(sk1,flags);
+		sk2 = sk1->prot->accept(sk1,flags); // 获取一个连接sock对象
 		if (sk2 == NULL)
 		{
 			if (sk1->err <= 0)
@@ -1068,7 +1071,7 @@ static int inet_accept(struct socket *sock, struct socket *newsock, int flags)
 		return(0);
 
 	cli(); /* avoid the race. */
-	while(sk2->state == TCP_SYN_RECV)
+	while(sk2->state == TCP_SYN_RECV) // 等待连接完成3次握手
 	{
 		interruptible_sleep_on(sk2->sleep);
 		if (current->signal & ~current->blocked)
@@ -1195,7 +1198,7 @@ static int inet_sendto(struct socket *sock, void *ubuf, int size, int noblock,
 	    unsigned flags, struct sockaddr *sin, int addr_len)
 {
 	struct sock *sk = (struct sock *) sock->data;
-	if (sk->shutdown & SEND_SHUTDOWN)
+	if (sk->shutdown & SEND_SHUTDOWN) // 如果关闭了发送端, 那么产生一个SIGPIPE的信号
 	{
 		send_sig(SIGPIPE, current, 1);
 		return(-EPIPE);
@@ -1438,7 +1441,7 @@ struct sock *get_sock_raw(struct sock *sk,
 			continue;
 		if(s->daddr && s->daddr!=raddr)
 			continue;
- 		if(s->saddr  && s->saddr!=laddr)
+ 		if(s->saddr && s->saddr!=laddr)
 			continue;
 		return(s);
   	}
@@ -1481,7 +1484,7 @@ struct sock *get_sock_mcast(struct sock *sk,
 			continue;
 		if (s->dummy_th.dest != rnum && s->dummy_th.dest != 0)
 			continue;
- 		if(s->saddr  && s->saddr!=laddr)
+ 		if(s->saddr && s->saddr!=laddr)
 			continue;
 		return(s);
   	}
@@ -1536,7 +1539,7 @@ void inet_proto_init(struct net_proto *pro)
 
   	(void) sock_register(inet_proto_ops.family, &inet_proto_ops);
 
-  	seq_offset = CURRENT_TIME*250;
+  	seq_offset = CURRENT_TIME*250; // 初始化TCP序列号
 
 	/*
 	 *	Add all the protocols.

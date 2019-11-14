@@ -10,7 +10,7 @@
  * Authors:	Ross Biro, <bir7@leland.Stanford.Edu>
  *		Fred N. van Kempen, <waltje@uWalt.NL.Mugnet.ORG>
  *
- *		Relocated to include/linux where it belongs by Alan Cox 
+ *		Relocated to include/linux where it belongs by Alan Cox
  *							<gw4pts@gw4pts.ampr.org>
  *
  *		This program is free software; you can redistribute it and/or
@@ -28,12 +28,15 @@
 #include <linux/if_ether.h>
 
 #ifdef __KERNEL__
+// 建立以太头部
 extern int		eth_header(unsigned char *buff, struct device *dev,
 				   unsigned short type, void *daddr,
 				   void *saddr, unsigned len,
 				   struct sk_buff *skb);
+// 重建以太头部
 extern int		eth_rebuild_header(void *buff, struct device *dev,
 			unsigned long raddr, struct sk_buff *skb);
+// 从数据包头部解析出上层协议(比如IP协议)
 extern unsigned short	eth_type_trans(struct sk_buff *skb, struct device *dev);
 
 #endif

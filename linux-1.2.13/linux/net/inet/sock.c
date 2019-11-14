@@ -34,7 +34,7 @@
  *		Alan Cox	:	TCP ack handling is buggy, the DESTROY timer
  *					was buggy. Put a remove_sock() in the handler
  *					for memory when we hit 0. Also altered the timer
- *					code. The ACK stuff can wait and needs major 
+ *					code. The ACK stuff can wait and needs major
  *					TCP layer surgery.
  *		Alan Cox	:	Fixed TCP ack bug, removed remove sock
  *					and fixed timer/inet_bh race.
@@ -121,21 +121,21 @@ int sock_setsockopt(struct sock *sk, int level, int optname,
 	int err;
 	struct linger ling;
 
-  	if (optval == NULL) 
+  	if (optval == NULL)
   		return(-EINVAL);
 
   	err=verify_area(VERIFY_READ, optval, sizeof(int));
   	if(err)
   		return err;
-  	
+
   	val = get_fs_long((unsigned long *)optval);
-  	switch(optname) 
+  	switch(optname)
   	{
 		case SO_TYPE:
 		case SO_ERROR:
 		  	return(-ENOPROTOOPT);
 
-		case SO_DEBUG:	
+		case SO_DEBUG:
 			if(val && !suser())
 				return(-EPERM);
 			sk->debug=val?1:0;
@@ -175,39 +175,39 @@ int sock_setsockopt(struct sock *sk, int level, int optname,
 			return(0);
 
 		case SO_REUSEADDR:
-			if (val) 
+			if (val)
 				sk->reuse = 1;
-			else 
+			else
 				sk->reuse = 0;
 			return(0);
 
 		case SO_KEEPALIVE:
 			if (val)
 				sk->keepopen = 1;
-			else 
+			else
 				sk->keepopen = 0;
 			return(0);
 
 	 	case SO_OOBINLINE:
-			if (val) 
+			if (val)
 				sk->urginline = 1;
-			else 
+			else
 				sk->urginline = 0;
 			return(0);
 
 	 	case SO_NO_CHECK:
-			if (val) 
+			if (val)
 				sk->no_check = 1;
-			else 
+			else
 				sk->no_check = 0;
 			return(0);
 
 		 case SO_PRIORITY:
-			if (val >= 0 && val < DEV_NUMBUFFS) 
+			if (val >= 0 && val < DEV_NUMBUFFS)
 			{
 				sk->priority = val;
-			} 
-			else 
+			}
+			else
 			{
 				return(-EINVAL);
 			}
@@ -221,26 +221,26 @@ int sock_setsockopt(struct sock *sk, int level, int optname,
 
 int sock_getsockopt(struct sock *sk, int level, int optname,
 		   char *optval, int *optlen)
-{		
+{
   	int val;
   	int err;
   	struct linger ling;
 
-  	switch(optname) 
+  	switch(optname)
   	{
-		case SO_DEBUG:		
+		case SO_DEBUG:
 			val = sk->debug;
 			break;
-		
+
 		case SO_DONTROUTE:
 			val = sk->localroute;
 			break;
-		
+
 		case SO_BROADCAST:
 			val= sk->broadcast;
 			break;
-		
-		case SO_LINGER:	
+
+		case SO_LINGER:
 			err=verify_area(VERIFY_WRITE,optval,sizeof(ling));
 			if(err)
 				return err;
@@ -252,11 +252,11 @@ int sock_getsockopt(struct sock *sk, int level, int optname,
 			ling.l_linger=sk->lingertime;
 			memcpy_tofs(optval,&ling,sizeof(ling));
 			return 0;
-		
+
 		case SO_SNDBUF:
 			val=sk->sndbuf;
 			break;
-		
+
 		case SO_RCVBUF:
 			val =sk->rcvbuf;
 			break;
@@ -270,13 +270,13 @@ int sock_getsockopt(struct sock *sk, int level, int optname,
 			break;
 
 		case SO_TYPE:
-#if 0		
-			if (sk->prot == &tcp_prot) 
+#if 0
+			if (sk->prot == &tcp_prot)
 				val = SOCK_STREAM;
-		  	else 
+		  	else
 		  		val = SOCK_DGRAM;
 #endif
-			val = sk->type;		  		
+			val = sk->type;
 			break;
 
 		case SO_ERROR:
@@ -287,7 +287,7 @@ int sock_getsockopt(struct sock *sk, int level, int optname,
 		case SO_OOBINLINE:
 			val = sk->urginline;
 			break;
-	
+
 		case SO_NO_CHECK:
 			val = sk->no_check;
 			break;
@@ -315,12 +315,12 @@ int sock_getsockopt(struct sock *sk, int level, int optname,
 
 struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force, int priority)
 {
-	if (sk) 
+	if (sk)
 	{
-		if (sk->wmem_alloc + size < sk->sndbuf || force) 
+		if (sk->wmem_alloc + size < sk->sndbuf || force)
 		{
 			struct sk_buff * c = alloc_skb(size, priority);
-			if (c) 
+			if (c)
 			{
 				unsigned long flags;
 				save_flags(flags);
@@ -338,12 +338,12 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force, int
 
 struct sk_buff *sock_rmalloc(struct sock *sk, unsigned long size, int force, int priority)
 {
-	if (sk) 
+	if (sk)
 	{
-		if (sk->rmem_alloc + size < sk->rcvbuf || force) 
+		if (sk->rmem_alloc + size < sk->rcvbuf || force)
 		{
 			struct sk_buff *c = alloc_skb(size, priority);
-			if (c) 
+			if (c)
 			{
 				unsigned long flags;
 				save_flags(flags);
@@ -363,12 +363,12 @@ unsigned long sock_rspace(struct sock *sk)
 {
 	int amt;
 
-	if (sk != NULL) 
+	if (sk != NULL)
 	{
-		if (sk->rmem_alloc >= sk->rcvbuf-2*MIN_WINDOW) 
+		if (sk->rmem_alloc >= sk->rcvbuf-2*MIN_WINDOW)
 			return(0);
 		amt = min((sk->rcvbuf-sk->rmem_alloc)/2-MIN_WINDOW, MAX_WINDOW);
-		if (amt < 0) 
+		if (amt < 0)
 			return(0);
 		return(amt);
 	}
@@ -378,7 +378,7 @@ unsigned long sock_rspace(struct sock *sk)
 
 unsigned long sock_wspace(struct sock *sk)
 {
-	if (sk != NULL) 
+	if (sk != NULL)
 	{
 		if (sk->shutdown & SEND_SHUTDOWN)
 			return(0);
@@ -396,7 +396,7 @@ void sock_wfree(struct sock *sk, struct sk_buff *skb, unsigned long size)
 	IS_SKB(skb);
 #endif
 	kfree_skbmem(skb, size);
-	if (sk) 
+	if (sk)
 	{
 		unsigned long flags;
 		save_flags(flags);
@@ -415,9 +415,9 @@ void sock_rfree(struct sock *sk, struct sk_buff *skb, unsigned long size)
 {
 #ifdef CONFIG_SKB_CHECK
 	IS_SKB(skb);
-#endif	
+#endif
 	kfree_skbmem(skb, size);
-	if (sk) 
+	if (sk)
 	{
 		unsigned long flags;
 		save_flags(flags);
@@ -437,7 +437,7 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size, int nob
 	int err;
 
 	sk->inuse=1;
-		
+
 	do
 	{
 		if(sk->err!=0)
@@ -449,15 +449,15 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size, int nob
 			*errcode=err;
 			return NULL;
 		}
-		
+
 		if(sk->shutdown&SEND_SHUTDOWN)
 		{
 			*errcode=-EPIPE;
 			return NULL;
 		}
-		
+
 		skb = sock_wmalloc(sk, size, 0, GFP_KERNEL);
-		
+
 		if(skb==NULL)
 		{
 			unsigned long tmp;
@@ -481,12 +481,12 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size, int nob
 				*errcode=-EPIPE;
 				return NULL;
 			}
-			
+
 			if( tmp <= sk->wmem_alloc)
 			{
 				sk->socket->flags &= ~SO_NOSPACE;
 				interruptible_sleep_on(sk->sleep);
-				if (current->signal & ~current->blocked) 
+				if (current->signal & ~current->blocked)
 				{
 					sti();
 					*errcode = -ERESTARTSYS;
@@ -497,7 +497,7 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size, int nob
 		}
 	}
 	while(skb==NULL);
-		
+
 	return skb;
 }
 
@@ -533,14 +533,14 @@ void release_sock(struct sock *sk)
 		return;
 	/*
 	 *	Make the backlog atomic. If we don't do this there is a tiny
-	 *	window where a packet may arrive between the sk->blog being 
-	 *	tested and then set with sk->inuse still 0 causing an extra 
+	 *	window where a packet may arrive between the sk->blog being
+	 *	tested and then set with sk->inuse still 0 causing an extra
 	 *	unwanted re-entry into release_sock().
 	 */
 
 	save_flags(flags);
 	cli();
-	if (sk->blog) 
+	if (sk->blog)
 	{
 		restore_flags(flags);
 		return;
@@ -550,25 +550,25 @@ void release_sock(struct sock *sk)
 	restore_flags(flags);
 #ifdef CONFIG_INET
 	/* See if we have any packets built up. */
-	while((skb = skb_dequeue(&sk->back_log)) != NULL) 
+	while((skb = skb_dequeue(&sk->back_log)) != NULL)
 	{
 		sk->blog = 1;
-		if (sk->prot->rcv) 
+		if (sk->prot->rcv)
 			sk->prot->rcv(skb, skb->dev, sk->opt,
 				 skb->saddr, skb->len, skb->daddr, 1,
 				/* Only used for/by raw sockets. */
-				(struct inet_protocol *)sk->pair); 
+				(struct inet_protocol *)sk->pair);
 	}
-#endif  
+#endif
 	sk->blog = 0;
 	sk->inuse = 0;
-#ifdef CONFIG_INET  
-	if (sk->dead && sk->state == TCP_CLOSE) 
+#ifdef CONFIG_INET
+	if (sk->dead && sk->state == TCP_CLOSE)
 	{
 		/* Should be about 2 rtt's */
 		reset_timer(sk, TIME_DONE, min(sk->rtt * 2, TCP_DONE_TIME));
 	}
-#endif  
+#endif
 }
 
 

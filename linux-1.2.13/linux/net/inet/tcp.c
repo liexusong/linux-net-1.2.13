@@ -308,7 +308,7 @@ int tcp_select_window(struct sock *sk)
 {
     int new_window = sk->prot->rspace(sk);
 
-    if(sk->window_clamp)
+    if(sk->window_clamp) // 如果本地socket需要节制
         new_window=min(sk->window_clamp,new_window);
     /*
      *     Two things are going on here.  First, we don't ever offer a
@@ -332,7 +332,7 @@ int tcp_select_window(struct sock *sk)
  *    Find someone to 'accept'. Must be called with
  *    sk->inuse=1 or cli()
  */
-
+// 查找一个已经三次握手完成的连接
 static struct sk_buff *tcp_find_established(struct sock *s)
 {
     struct sk_buff *p=skb_peek(&s->receive_queue);
@@ -352,7 +352,7 @@ static struct sk_buff *tcp_find_established(struct sock *s)
  *    Remove a completed connection and return it. This is used by
  *    tcp_accept() to get connections from the queue.
  */
-
+// 找到一个完成三次握手的连接，并且把其对应的缓冲对象踢出队列
 static struct sk_buff *tcp_dequeue_established(struct sock *s)
 {
     struct sk_buff *skb;
@@ -402,7 +402,7 @@ static void tcp_time_wait(struct sock *sk)
  *    A socket has timed out on its send queue and wants to do a
  *    little retransmitting. Currently this means TCP.
  */
-
+// 如果socket超时了，重发数据包
 void tcp_do_retransmit(struct sock *sk, int all)
 {
     struct sk_buff * skb;
@@ -411,7 +411,7 @@ void tcp_do_retransmit(struct sock *sk, int all)
     int ct=0;
 
     prot = sk->prot;
-    skb = sk->send_head;
+    skb = sk->send_head; // 发送队列
 
     while (skb != NULL)
     {
@@ -419,7 +419,7 @@ void tcp_do_retransmit(struct sock *sk, int all)
         struct iphdr *iph;
         int size;
 
-        dev = skb->dev;
+        dev = skb->dev; // 包对应的设备(如果是发送包即对应出口设备, 如果是接收包即对应入口设备)
         IS_SKB(skb);
         skb->when = jiffies;
 
@@ -432,9 +432,9 @@ void tcp_do_retransmit(struct sock *sk, int all)
          * changing the packet, we have to issue a new IP identifier.
          */
 
-        iph = (struct iphdr *)(skb->data + dev->hard_header_len);
-        th = (struct tcphdr *)(((char *)iph) + (iph->ihl << 2));
-        size = skb->len - (((unsigned char *) th) - skb->data);
+        iph = (struct iphdr *)(skb->data + dev->hard_header_len); // IP头部
+        th = (struct tcphdr *)(((char *)iph) + (iph->ihl << 2));  // TCP头部
+        size = skb->len - (((unsigned char *) th) - skb->data);   // TCP包大小
 
         /*
          *    Note: We ought to check for window limits here but
@@ -444,8 +444,8 @@ void tcp_do_retransmit(struct sock *sk, int all)
          *
          */
 
-        iph->id = htons(ip_id_count++);
-        ip_send_check(iph);
+        iph->id = htons(ip_id_count++); // 新的IP包ID, 用于分片
+        ip_send_check(iph);             // 更新IP包的checksum
 
         /*
          *    This is not the right way to handle this. We have to
@@ -459,8 +459,8 @@ void tcp_do_retransmit(struct sock *sk, int all)
          */
 
         th->ack_seq = ntohl(sk->acked_seq);
-        th->window = ntohs(tcp_select_window(sk));
-        tcp_send_check(th, sk->saddr, sk->daddr, size, sk);
+        th->window = ntohs(tcp_select_window(sk));           // 更新接收窗口大小
+        tcp_send_check(th, sk->saddr, sk->daddr, size, sk);  // 更新TCP包的checksum
 
         /*
          *    If the interface is (still) up and running, kick it.
@@ -491,7 +491,7 @@ void tcp_do_retransmit(struct sock *sk, int all)
          */
 
         ct++;
-        sk->prot->retransmits ++;
+        sk->prot->retransmits++;
 
         /*
          *    Only one retransmit requested.
@@ -513,7 +513,7 @@ void tcp_do_retransmit(struct sock *sk, int all)
 /*
  *    Reset the retransmission timer
  */
-
+// 重置重发定时器
 static void reset_xmit_timer(struct sock *sk, int why, unsigned long when)
 {
     del_timer(&sk->retransmit_timer);
@@ -534,7 +534,7 @@ static void reset_xmit_timer(struct sock *sk, int why, unsigned long when)
  *     initiating a backoff.
  */
 
-
+// 重发数据包并且重置重发定时器
 void tcp_retransmit_time(struct sock *sk, int all)
 {
     tcp_do_retransmit(sk, all);
@@ -610,7 +610,7 @@ static int tcp_write_timeout(struct sock *sk)
     /*
      *    Has it gone just too far ?
      */
-    if (sk->retransmits > TCP_RETR2)
+    if (sk->retransmits > TCP_RETR2) // 如果重传次数超过15次, 那么就把连接设置为close状态
     {
         sk->err = ETIMEDOUT;
         sk->error_report(sk);
@@ -655,7 +655,7 @@ static void retransmit_timer(unsigned long data)
      */
 
     cli();
-    if (sk->inuse || in_bh)
+    if (sk->inuse || in_bh) // 如果socket正在被使用中, 那么等待1秒再处理
     {
         /* Try again in 1 second */
         sk->retransmit_timer.expires = HZ;
@@ -668,12 +668,13 @@ static void retransmit_timer(unsigned long data)
     sti();
 
     /* Always see if we need to send an ack. */
-
-    if (sk->ack_backlog && !sk->zapped)
+    // ack_backlog大于0表示有没有回复ack的包
+    // zapped等于0表示连接没有被重置
+    if (sk->ack_backlog && !sk->zapped) // zapped在tcp_std_reset()函数中被设置为1
     {
-        sk->prot->read_wakeup (sk);
-        if (! sk->dead)
-            sk->data_ready(sk,0);
+        sk->prot->read_wakeup(sk); // tcp_read_wakeup()
+        if (!sk->dead)
+            sk->data_ready(sk,0); // 通知socket等待队列数据已经发生变化
     }
 
     /* Now we need to figure out why the socket was on the timer. */
@@ -681,12 +682,13 @@ static void retransmit_timer(unsigned long data)
     switch (why)
     {
         /* Window probing */
+        // 这个定时器有两个地方设置: 1) tcp_send_skb(), 2) tcp_ack()
         case TIME_PROBE0:
-            tcp_send_probe0(sk);
-            tcp_write_timeout(sk);
+            tcp_send_probe0(sk);   // 发送ack包, 并把定时器超时时间增大到原来的2倍
+            tcp_write_timeout(sk); // 处理超时次数逻辑
             break;
         /* Retransmitting */
-        case TIME_WRITE:
+        case TIME_WRITE: // 如果发送的数据包超时没有得到应答
             /* It could be we got here because we needed to send an ack.
              * So we need to check for that.
              */
@@ -696,7 +698,7 @@ static void retransmit_timer(unsigned long data)
 
             save_flags(flags);
             cli();
-            skb = sk->send_head;
+            skb = sk->send_head; // 未得到对端应答的数据包
             if (!skb)
             {
                 restore_flags(flags);
@@ -709,7 +711,7 @@ static void retransmit_timer(unsigned long data)
                  */
                 if (jiffies < skb->when + sk->rto)
                 {
-                    reset_xmit_timer (sk, TIME_WRITE, skb->when + sk->rto - jiffies);
+                    reset_xmit_timer(sk, TIME_WRITE, skb->when + sk->rto - jiffies);
                     restore_flags(flags);
                     break;
                 }
@@ -717,7 +719,7 @@ static void retransmit_timer(unsigned long data)
                 /*
                  *    Retransmission
                  */
-                sk->prot->retransmit (sk, 0);
+                sk->prot->retransmit(sk, 0);
                 tcp_write_timeout(sk);
             }
             break;
@@ -728,11 +730,11 @@ static void retransmit_timer(unsigned long data)
              * this reset_timer() call is a hack, this is not
              * how KEEPOPEN is supposed to work.
              */
-            reset_xmit_timer (sk, TIME_KEEPOPEN, TCP_TIMEOUT_LEN);
+            reset_xmit_timer(sk, TIME_KEEPOPEN, TCP_TIMEOUT_LEN); // 15分钟调用一次
 
             /* Send something to keep the connection open. */
             if (sk->prot->write_wakeup)
-                  sk->prot->write_wakeup (sk);
+                  sk->prot->write_wakeup(sk);
             sk->retransmits++;
             tcp_write_timeout(sk);
             break;
@@ -1168,7 +1170,10 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
      *    b) We are retransmitting (Nagle's rule)
      *    c) We have too many packets 'in flight'
      */
-
+    // 放进发送队列的包条件
+    // 1. 如果要发送的包比确认的包要大
+    // 2. 连接已经超时并且重发数据了
+    // 3. 发送包的数据大于对端的窗口
     if (after(skb->h.seq, sk->window_seq) ||
         (sk->retransmits && sk->ip_xmit_timeout == TIME_WRITE) ||
          sk->packets_out >= sk->cong_window)
@@ -1181,7 +1186,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
             printk("tcp_send_partial: next != NULL\n");
             skb_unlink(skb);
         }
-        skb_queue_tail(&sk->write_queue, skb);
+        skb_queue_tail(&sk->write_queue, skb); // 把包先缓存到发送队列中
 
         /*
          *    If we don't fit we have to start the zero window
@@ -2094,8 +2099,8 @@ static int tcp_read(struct sock *sk, unsigned char *to,
             if (!(flags & MSG_PEEK))
                 skb->used = 1;
             skb = skb->next;
-        }
-        while (skb != (struct sk_buff *)&sk->receive_queue);
+
+        } while (skb != (struct sk_buff *)&sk->receive_queue);
 
         if (copied)
             break;
@@ -4222,7 +4227,7 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
    * and that it has something pending.
    */
 
-    if (sk->state != TCP_LISTEN)
+    if (sk->state != TCP_LISTEN) // 如果accept调用的不是listen状态的socket, 返回错误
     {
         sk->err = EINVAL;
         return(NULL);
@@ -4232,7 +4237,7 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
     cli();
     sk->inuse = 1;
 
-    while((skb = tcp_dequeue_established(sk)) == NULL)
+    while((skb = tcp_dequeue_established(sk)) == NULL) // 从缓冲队列中获取一个已经完成三次握手的连接
     {
         if (flags & O_NONBLOCK)
         {
@@ -4251,7 +4256,7 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
             return(NULL);
         }
         sk->inuse = 1;
-      }
+    }
     sti();
 
     /*
@@ -4931,7 +4936,7 @@ static void tcp_write_wakeup(struct sock *sk)
     struct device *dev=NULL;
     int tmp;
 
-    if (sk->zapped)
+    if (sk->zapped) // 连接被重置了
         return;    /* After a valid reset we can send no more */
 
     /*
@@ -5010,13 +5015,13 @@ void tcp_send_probe0(struct sock *sk)
     if (sk->zapped)
         return;        /* After a valid reset we can send no more */
 
-    tcp_write_wakeup(sk);
+    tcp_write_wakeup(sk); // 发送ack包
 
     sk->backoff++;
-    sk->rto = min(sk->rto << 1, 120*HZ);
+    sk->rto = min(sk->rto << 1, 120*HZ); // 超时时间增大到2倍
     reset_xmit_timer (sk, TIME_PROBE0, sk->rto);
     sk->retransmits++;
-    sk->prot->retransmits ++;
+    sk->prot->retransmits++;
 }
 
 /*
