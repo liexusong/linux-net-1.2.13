@@ -306,7 +306,7 @@ static __inline__ void tcp_set_state(struct sock *sk, int state)
 
 int tcp_select_window(struct sock *sk)
 {
-    int new_window = sk->prot->rspace(sk);
+    int new_window = sk->prot->rspace(sk); // 本地剩余空间
 
     if(sk->window_clamp) // 如果本地socket需要节制
         new_window=min(sk->window_clamp,new_window);
@@ -837,7 +837,7 @@ static int tcp_readable(struct sock *sk)
           return(0);
     }
 
-    counted = sk->copied_seq;    /* Where we are at the moment */
+    counted = sk->copied_seq;    /* Where we are at the moment */ // 已经被应用程序读取的数据序列号
     amount = 0;
 
     /*
@@ -846,7 +846,7 @@ static int tcp_readable(struct sock *sk)
 
     do
     {
-        if (before(counted, skb->h.th->seq))     /* Found a hole so stops here */
+        if (before(counted, skb->h.th->seq))     /* `counted < skb->h.th->seq` Found a hole so stops here */
             break;
         sum = skb->len -(counted - skb->h.th->seq);    /* Length - header but start from where we are up to (avoid overlaps) */
         if (skb->h.th->syn)
@@ -1116,7 +1116,7 @@ void tcp_send_check(struct tcphdr *th, unsigned long saddr,
  *    This is the main buffer sending routine. We queue the buffer
  *    having checked it is sane seeming.
  */
-
+// 发送一个数据包
 static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
 {
     int size;
@@ -1126,7 +1126,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
      *    length of packet (not counting length of pre-tcp headers)
      */
 
-    size = skb->len - ((unsigned char *) th - skb->data);
+    size = skb->len - ((unsigned char *) th - skb->data); // 去掉IP和MAC头部的长度
 
     /*
      *    Sanity check it..
@@ -1161,7 +1161,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
      */
 
     tcp_statistics.TcpOutSegs++;
-    skb->h.seq = ntohl(th->seq) + size - 4*th->doff;
+    skb->h.seq = ntohl(th->seq) + size - 4*th->doff; // 对端应该回复的应答序列号，如果对端应答的序列号一致，即把缓存从send_head中删除
 
     /*
      *    We must queue if
@@ -1171,7 +1171,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
      *    c) We have too many packets 'in flight'
      */
     // 放进发送队列的包条件
-    // 1. 如果要发送的包比确认的包要大
+    // 1. 如果要发送的包比对端窗口要大
     // 2. 连接已经超时并且重发数据了
     // 3. 发送包的数据大于对端的窗口
     if (after(skb->h.seq, sk->window_seq) ||
@@ -1194,7 +1194,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
          *    send _first_ (This is what causes the Cisco and PC/TCP
          *    grief).
          */
-
+        // 启动窗口探测定时器
         if (before(sk->window_seq, sk->write_queue.next->h.seq) &&
             sk->send_head == NULL && sk->ack_backlog == 0)
             reset_xmit_timer(sk, TIME_PROBE0, sk->rto);
@@ -1924,7 +1924,7 @@ static void cleanup_rbuf(struct sock *sk)
     if(sk->debug)
         printk("sk->rspace = %lu, was %lu\n", sk->prot->rspace(sk),
                           left);
-    if ((rspace=sk->prot->rspace(sk)) != left)
+    if ((rspace=sk->prot->rspace(sk)) != left) // 有更多空间了
     {
         /*
          * This area has caused the most trouble.  The current strategy
@@ -2041,14 +2041,14 @@ static int tcp_read(struct sock *sk, unsigned char *to,
      *    This error should be checked.
      */
 
-    if (sk->state == TCP_LISTEN)
+    if (sk->state == TCP_LISTEN) // listen状态的socket不能read
         return -ENOTCONN;
 
     /*
      *    Urgent data needs to be handled specially.
      */
 
-    if (flags & MSG_OOB)
+    if (flags & MSG_OOB) // 读取紧急数据
         return tcp_read_urg(sk, nonblock, to, len, flags);
 
     /*
@@ -2057,12 +2057,12 @@ static int tcp_read(struct sock *sk, unsigned char *to,
      *    inline and thus not flush cached variables otherwise).
      */
 
-    peek_seq = sk->copied_seq;
+    peek_seq = sk->copied_seq; // 已经被应用层读取的数据序列
     seq = &sk->copied_seq;
-    if (flags & MSG_PEEK)
+    if (flags & MSG_PEEK) // 如果只是窥看模式(就是不会把socket的缓存删除)
         seq = &peek_seq;
 
-    add_wait_queue(sk->sleep, &wait);
+    add_wait_queue(sk->sleep, &wait); // 添加到等待队列中
     sk->inuse = 1;
     while (len > 0)
     {
@@ -2073,7 +2073,7 @@ static int tcp_read(struct sock *sk, unsigned char *to,
          * Are we at urgent data? Stop if we have read anything.
          */
 
-        if (copied && sk->urg_data && sk->urg_seq == *seq)
+        if (copied && sk->urg_data && sk->urg_seq == *seq) // 如果读到了紧急数据, 立刻返回
             break;
 
         /*
@@ -2082,14 +2082,15 @@ static int tcp_read(struct sock *sk, unsigned char *to,
 
         current->state = TASK_INTERRUPTIBLE;
 
-        skb = skb_peek(&sk->receive_queue);
+        skb = skb_peek(&sk->receive_queue); // 从recevice_queue队列中获取一个buff
         do
         {
             if (!skb)
                 break;
+            // seq < skb->h.th->seq
             if (before(*seq, skb->h.th->seq))
                 break;
-            offset = *seq - skb->h.th->seq;
+            offset = *seq - skb->h.th->seq; // 重复数据偏移量
             if (skb->h.th->syn)
                 offset--;
             if (offset < skb->len)
@@ -2135,7 +2136,7 @@ static int tcp_read(struct sock *sk, unsigned char *to,
             break;
         }
 
-        cleanup_rbuf(sk);
+        cleanup_rbuf(sk); // 清楚已经被应用层读取的数据缓存
         release_sock(sk);
         sk->socket->flags |= SO_WAITDATA;
         schedule();
@@ -2214,7 +2215,7 @@ static int tcp_read(struct sock *sk, unsigned char *to,
          *    but you'll just have to fix it neatly ;)
          */
 
-        skb->users --;
+        skb->users--;
 
         if (after(sk->copied_seq,sk->urg_seq))
             sk->urg_data = 0;

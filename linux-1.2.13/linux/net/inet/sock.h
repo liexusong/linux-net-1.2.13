@@ -61,12 +61,12 @@ struct sock {
   struct options		*opt;
   volatile unsigned long	wmem_alloc;  // 当前写缓冲区大小，该值不可大于系统规定的最大值
   volatile unsigned long	rmem_alloc;  // 当前读缓冲区大小，该值不可大于系统规定最大值
-  unsigned long			write_seq;    // 表示应用程序下一次写数据时所对应的第一个字节的序列号，write_queue 队列的序列号
-  unsigned long			sent_seq;     // 表示本地将要发送的下一个数据包中第一个字节对应的序列号
-  unsigned long			acked_seq;    // 表示本地希望从远端接收的下一个数据的序列号
-  unsigned long			copied_seq;   // 应用程序有待读取但尚未读取的数据的第一个字节的序列号
+  unsigned long			write_seq;    // 表示已经写入到缓存队列的数据序列号，write_queue 队列的序列号
+  unsigned long			sent_seq;     // 表示已经发生出去的数据序列号
+  unsigned long			acked_seq;    // 表示下一个数据包的序列号
+  unsigned long			copied_seq;   // 已经被应用程序读取到的数据序列号
   unsigned long			rcv_ack_seq;  // 表示目前本地接收到的远端对本地发送数据的应答序列号，表示本地已经发送的小于此序列号的所有数据已被远端成功接收
-  unsigned long			window_seq;   // sent_seq 值加上远端窗口的大小，本地将要发送的数据包的最后一个字节的序列号不可大于此值
+  unsigned long			window_seq;   // 窗口最大序列号，sent_seq 值加上远端窗口的大小，本地将要发送的数据包的最后一个字节的序列号不可大于此值
   unsigned long			fin_seq;
   unsigned long			urg_seq;
   unsigned long			urg_data;
@@ -75,41 +75,42 @@ struct sock {
    * Not all are volatile, but some are, so we
    * might as well say they all are.
    */
-  volatile char                 inuse,
-				dead,
-				urginline,
-				intr,
-				blog,
-				done,
-				reuse,
-				keepopen,
-				linger,
-				delay_acks,
-				destroy,
-				ack_timed,
-				no_check,
-				zapped,	/* In ax25 & ipx means not linked */
-				broadcast,
-				nonagle;
-  unsigned long		        lingertime;
+  // 标识位
+  volatile char   inuse,
+          				dead,
+          				urginline,
+          				intr,
+          				blog,
+          				done,
+          				reuse,
+          				keepopen,
+          				linger,
+          				delay_acks,
+          				destroy,
+          				ack_timed,
+          				no_check,
+          				zapped,	/* In ax25 & ipx means not linked */ // 是否被reset
+          				broadcast,
+          				nonagle;
+  unsigned long		lingertime;
   int				proc;
   struct sock			*next;
   struct sock			*prev; /* Doubly linked chain.. */
   struct sock			*pair;
   struct sk_buff		* volatile send_head;
   struct sk_buff		* volatile send_tail;
-  struct sk_buff_head		back_log;
-  struct sk_buff		*partial;
+  struct sk_buff_head		back_log; // 暂存队列(就是没空处理的数据包队列)
+  struct sk_buff		*partial; // 用于优化发送太多小包
   struct timer_list		partial_timer;
   long				retransmits;
-  struct sk_buff_head		write_queue,
-				receive_queue;
+  struct sk_buff_head		write_queue,   // 要发送给远端的缓存队列
+				                receive_queue; // 接收到远端数据的缓存队列(read/recv系统调用能够读到的数据)
   struct proto			*prot;
   struct wait_queue		**sleep;
   unsigned long			daddr;
   unsigned long			saddr;
   unsigned short		max_unacked;
-  unsigned short		window;
+  unsigned short		window; // 本地的传输窗口
   unsigned short		bytes_rcv;
 /* mss is min(mtu, max_window) */
   unsigned short		mtu;       /* mss negotiated in the syn's */
@@ -133,7 +134,7 @@ struct sock {
   volatile short		err;
   unsigned char			protocol;
   volatile unsigned char	state;
-  volatile unsigned char	ack_backlog;
+  volatile unsigned char	ack_backlog; // 没应答对端的数量
   unsigned char			max_ack_backlog;
   unsigned char			priority;
   unsigned char			debug;
