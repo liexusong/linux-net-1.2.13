@@ -1361,8 +1361,7 @@ static int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
  */
 
 struct sock *get_sock(struct proto *prot, unsigned short num,
-				unsigned long raddr,
-				unsigned short rnum, unsigned long laddr)
+	unsigned long raddr, unsigned short rnum, unsigned long laddr)
 {
 	struct sock *s;
 	struct sock *result = NULL;
@@ -1380,9 +1379,7 @@ struct sock *get_sock(struct proto *prot, unsigned short num,
 	 * socket number when we choose an arbitrary one.
 	 */
 
-	for(s = prot->sock_array[hnum & (SOCK_ARRAY_SIZE - 1)];
-			s != NULL; s = s->next)
-	{
+	for (s = prot->sock_array[hnum&(SOCK_ARRAY_SIZE-1)]; s != NULL; s = s->next) {
 		int score = 0;
 
 		if (s->num != hnum)

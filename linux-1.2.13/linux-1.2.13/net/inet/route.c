@@ -552,7 +552,7 @@ struct rtable * ip_rt_route(unsigned long daddr, struct options *opt, unsigned l
 
 	for (rt = rt_base; rt != NULL || early_out ; rt = rt->rt_next)
 	{
-		if (!((rt->rt_dst ^ daddr) & rt->rt_mask)) // matched
+		if (!((rt->rt_dst ^ daddr) & rt->rt_mask)) // 匹配到
 			break;
 		/*
 		 *	broadcast addresses can be special cases..
@@ -564,13 +564,8 @@ struct rtable * ip_rt_route(unsigned long daddr, struct options *opt, unsigned l
 			break;
 	}
 
-<<<<<<< HEAD
 	if(src_addr != NULL)
-		*src_addr = rt->rt_dev->pa_addr;
-=======
-	if(src_addr!=NULL)
 		*src_addr = rt->rt_dev->pa_addr; // 设备的IP
->>>>>>> 121da4ad597b283fe6abf7102281df696ccae1f0
 
 	if (daddr == rt->rt_dev->pa_addr) {
 		if ((rt = rt_loopback) == NULL)

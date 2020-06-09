@@ -75,7 +75,7 @@ void minix_put_super(struct super_block *sb)
 	return;
 }
 
-static struct super_operations minix_sops = { 
+static struct super_operations minix_sops = {
 	minix_read_inode,
 	NULL,
 	minix_write_inode,
@@ -121,7 +121,7 @@ int minix_remount (struct super_block * sb, int * flags, char * data)
 }
 
 
-struct super_block *minix_read_super(struct super_block *s,void *data, 
+struct super_block *minix_read_super(struct super_block *s,void *data,
 				     int silent)
 {
 	struct buffer_head *bh;
@@ -319,7 +319,7 @@ repeat:
 	return result;
 }
 
-static struct buffer_head * block_getblk(struct inode * inode, 
+static struct buffer_head * block_getblk(struct inode * inode,
 	struct buffer_head * bh, int nr, int create)
 {
 	int tmp;
@@ -382,7 +382,7 @@ struct buffer_head * minix_getblk(struct inode * inode, int block, int create)
 		return NULL;
 	}
 	if (block < 7)
-		return inode_getblk(inode,block,create);
+		return inode_getblk(inode,block,create); // 读取直接寻址的数据块
 	block -= 7;
 	if (block < 512) {
 		bh = inode_getblk(inode,7,create);

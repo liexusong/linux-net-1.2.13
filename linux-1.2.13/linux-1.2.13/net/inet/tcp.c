@@ -303,7 +303,7 @@ static __inline__ void tcp_set_state(struct sock *sk, int state)
  *    Secondly we bin common duplicate forms at receive time
  *      Better heuristics welcome
  */
-
+// 获取socket的窗口大小
 int tcp_select_window(struct sock *sk)
 {
     int new_window = sk->prot->rspace(sk); // 本地剩余空间
@@ -1218,7 +1218,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
          *    unroutable FIN's and other things.
          */
 
-        sk->prot->queue_xmit(sk, skb->dev, skb, 0);
+        sk->prot->queue_xmit(sk, skb->dev, skb, 0); // 直接发送出去
 
         /*
          *    Set for next retransmit based on expected ACK time.
@@ -1303,8 +1303,7 @@ void tcp_enqueue_partial(struct sk_buff * skb, struct sock * sk)
  */
 
 static void tcp_send_ack(unsigned long sequence, unsigned long ack,
-         struct sock *sk,
-         struct tcphdr *th, unsigned long daddr)
+         struct sock *sk, struct tcphdr *th, unsigned long daddr)
 {
     struct sk_buff *buff;
     struct tcphdr *t1;
@@ -2262,7 +2261,7 @@ static int tcp_read(struct sock *sk, unsigned char *to,
  *    states. A shutdown() may have already sent the FIN, or we may be
  *    closed.
  */
-
+// 调用close()函数时触发
 static int tcp_close_state(struct sock *sk, int dead)
 {
     int ns=TCP_CLOSE;
@@ -2362,7 +2361,7 @@ static void tcp_send_fin(struct sock *sk)
            *    (Not good).
            */
 
-          buff->free = 1;
+        buff->free = 1;
         prot->wfree(sk,buff->mem_addr, buff->mem_len);
         sk->write_seq++;
         t=del_timer(&sk->timer);
@@ -2396,21 +2395,21 @@ static void tcp_send_fin(struct sock *sk)
     /*
      * If there is data in the write queue, the fin must be appended to
      * the write queue.
-      */
+     */
 
-     if (skb_peek(&sk->write_queue) != NULL)
-     {
-          buff->free = 0;
+    if (skb_peek(&sk->write_queue) != NULL)
+    {
+        buff->free = 0;
         if (buff->next != NULL)
         {
             printk("tcp_send_fin: next != NULL\n");
             skb_unlink(buff);
         }
         skb_queue_tail(&sk->write_queue, buff);
-      }
-      else
-      {
-            sk->sent_seq = sk->write_seq;
+    }
+    else
+    {
+        sk->sent_seq = sk->write_seq;
         sk->prot->queue_xmit(sk, dev, buff, 0);
         reset_xmit_timer(sk, TIME_WRITE, sk->rto);
     }
@@ -2443,7 +2442,7 @@ void tcp_shutdown(struct sock *sk, int how)
         sk->state == TCP_TIME_WAIT ||
         sk->state == TCP_CLOSE ||
         sk->state == TCP_LISTEN
-      )
+    )
     {
         return;
     }
@@ -2493,10 +2492,10 @@ tcp_recvfrom(struct sock *sk, unsigned char *to,
     if (result < 0)
         return(result);
 
-      if(addr)
-      {
+    if (addr)
+    {
         addr->sin_family = AF_INET;
-         addr->sin_port = sk->dummy_th.dest;
+        addr->sin_port = sk->dummy_th.dest;
         addr->sin_addr.s_addr = sk->daddr;
     }
     return(result);
@@ -2567,8 +2566,8 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr, struct tcphdr *t
     if(th->ack)
     {
         t1->ack = 0;
-          t1->seq = th->ack_seq;
-          t1->ack_seq = 0;
+        t1->seq = th->ack_seq;
+        t1->ack_seq = 0;
     }
     else
     {
@@ -2612,34 +2611,34 @@ static void tcp_options(struct sock *sk, struct tcphdr *th)
 
     while(length>0)
     {
-          int opcode=*ptr++;
-          int opsize=*ptr++;
-          switch(opcode)
-          {
-              case TCPOPT_EOL:
-                  return;
-              case TCPOPT_NOP:    /* Ref: RFC 793 section 3.1 */
-                  length--;
-                  ptr--;        /* the opsize=*ptr++ above was a mistake */
-                  continue;
+        int opcode=*ptr++;
+        int opsize=*ptr++;
+        switch(opcode)
+        {
+            case TCPOPT_EOL:
+                return;
+            case TCPOPT_NOP:    /* Ref: RFC 793 section 3.1 */
+                length--;
+                ptr--;        /* the opsize=*ptr++ above was a mistake */
+                continue;
 
-              default:
-                  if(opsize<=2)    /* Avoid silly options looping forever */
-                      return;
-                  switch(opcode)
-                  {
-                      case TCPOPT_MSS:
-                          if(opsize==4 && th->syn)
-                          {
-                              sk->mtu=min(sk->mtu,ntohs(*(unsigned short *)ptr));
+            default:
+                if(opsize<=2)    /* Avoid silly options looping forever */
+                    return;
+                switch(opcode)
+                {
+                    case TCPOPT_MSS:
+                        if(opsize==4 && th->syn)
+                        {
+                            sk->mtu=min(sk->mtu,ntohs(*(unsigned short *)ptr));
                             mss_seen = 1;
-                          }
-                          break;
-                          /* Add other options here as people feel the urge to implement stuff like large windows */
-                  }
-                  ptr+=opsize-2;
-                  length-=opsize;
-          }
+                        }
+                        break;
+                        /* Add other options here as people feel the urge to implement stuff like large windows */
+                }
+                ptr+=opsize-2;
+                length-=opsize;
+        }
     }
     if (th->syn)
     {
@@ -2687,9 +2686,10 @@ extern inline unsigned long tcp_init_seq(void)
  *    listening.
  */
 
-static void tcp_conn_request(struct sock *sk, struct sk_buff *skb,
-         unsigned long daddr, unsigned long saddr,
-         struct options *opt, struct device *dev, unsigned long seq)
+static void tcp_conn_request(
+    struct sock *sk, struct sk_buff *skb,
+    unsigned long daddr, unsigned long saddr,
+    struct options *opt, struct device *dev, unsigned long seq)
 {
     struct sk_buff *buff;
     struct tcphdr *t1;
@@ -2778,7 +2778,7 @@ static void tcp_conn_request(struct sock *sk, struct sk_buff *skb,
     newsk->acked_seq = skb->h.th->seq+1;
     newsk->copied_seq = skb->h.th->seq+1;
     newsk->fin_seq = skb->h.th->seq;
-    newsk->state = TCP_SYN_RECV;
+    newsk->state = TCP_SYN_RECV; // 新创建的socket状态为TCP_SYN_RECV
     newsk->timeout = 0;
     newsk->ip_xmit_timeout = 0;
     newsk->write_seq = seq;
@@ -2833,7 +2833,7 @@ static void tcp_conn_request(struct sock *sk, struct sk_buff *skb,
      *     Note use of sk->user_mss, since user has no direct access to newsk
      */
 
-    rt=ip_rt_route(saddr, NULL,NULL);
+    rt = ip_rt_route(saddr, NULL, NULL);
 
     if(rt!=NULL && (rt->rt_flags&RTF_WINDOW))
         newsk->window_clamp = rt->rt_window;
@@ -2923,7 +2923,7 @@ static void tcp_conn_request(struct sock *sk, struct sk_buff *skb,
     t1->dest = skb->h.th->source;
     t1->source = newsk->dummy_th.source;
     t1->seq = ntohl(newsk->write_seq++);
-    t1->ack = 1;
+    t1->ack = 1; // 发送ACK包给对端
     newsk->window = tcp_select_window(newsk);
     newsk->sent_seq = newsk->write_seq;
     t1->window = ntohs(newsk->window);
@@ -2942,7 +2942,7 @@ static void tcp_conn_request(struct sock *sk, struct sk_buff *skb,
     ptr[3] =(newsk->mtu) & 0xff;
 
     tcp_send_check(t1, daddr, saddr, sizeof(*t1)+4, newsk);
-    newsk->prot->queue_xmit(newsk, ndev, buff, 0);
+    newsk->prot->queue_xmit(newsk, ndev, buff, 0); // 发送包
     reset_xmit_timer(newsk, TIME_WRITE , TCP_TIMEOUT_INIT);
     skb->sk = newsk;
 
@@ -2953,7 +2953,7 @@ static void tcp_conn_request(struct sock *sk, struct sk_buff *skb,
     sk->rmem_alloc -= skb->mem_len;
     newsk->rmem_alloc += skb->mem_len;
 
-    skb_queue_tail(&sk->receive_queue,skb);
+    skb_queue_tail(&sk->receive_queue, skb); // 添加到listen socket的receive_queue队列中
     sk->ack_backlog++;
     release_sock(newsk);
     tcp_statistics.TcpOutSegs++;
@@ -4238,7 +4238,7 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
     cli();
     sk->inuse = 1;
 
-    while((skb = tcp_dequeue_established(sk)) == NULL) // 从缓冲队列中获取一个已经完成三次握手的连接
+    while ((skb = tcp_dequeue_established(sk)) == NULL) // 从缓冲队列中获取一个已经完成三次握手的连接
     {
         if (flags & O_NONBLOCK)
         {
@@ -4527,10 +4527,12 @@ static int tcp_std_reset(struct sock *sk, struct sk_buff *skb)
  *    A TCP packet has arrived.
  */
 
-int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
-    unsigned long daddr, unsigned short len,
-    unsigned long saddr, int redo, struct inet_protocol * protocol)
-{
+int tcp_rcv(
+    struct sk_buff *skb, struct device *dev,
+    struct options *opt, unsigned long daddr,
+    unsigned short len, unsigned long saddr,
+    int redo, struct inet_protocol * protocol
+) {
     struct tcphdr *th;
     struct sock *sk;
     int syn_ok=0;
@@ -4572,8 +4574,8 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
        *    exist so should cause resets as if the port was unreachable.
        */
 
-    if (sk!=NULL && (sk->zapped || sk->state==TCP_CLOSE))
-        sk=NULL;
+    if (sk != NULL && (sk->zapped || sk->state == TCP_CLOSE))
+        sk = NULL;
 
     if (!redo) // 从ip_rcv()调用时, 此参数为0
     {
@@ -4653,7 +4655,7 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
         return(0);
     }
 
-    skb->sk=sk;
+    skb->sk = sk;
     sk->rmem_alloc += skb->mem_len;
 
     /*
@@ -4669,9 +4671,9 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
          *    Now deal with unusual cases.
          */
 
-        if(sk->state==TCP_LISTEN)
+        if(sk->state==TCP_LISTEN) // 如果是listen状态
         {
-            if(th->ack)    /* These use the socket TOS.. might want to be the received TOS */
+            if (th->ack)    /* These use the socket TOS.. might want to be the received TOS(Type-of-Service) */
                 tcp_reset(daddr,saddr,th,sk->prot,opt,dev,sk->ip_tos, sk->ip_ttl);
 
             /*
@@ -4681,7 +4683,7 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
              *    this problem so I'm ignoring it
              */
 
-            if(th->rst || !th->syn || th->ack || ip_chk_addr(daddr)!=IS_MYADDR)
+            if(th->rst || !th->syn || th->ack || ip_chk_addr(daddr) != IS_MYADDR)
             {
                 kfree_skb(skb, FREE_READ);
                 release_sock(sk);
@@ -4709,7 +4711,7 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
             return 0;
         }
 
-        /* retransmitted SYN? */ // 重发syn包, 放弃这个包
+        /* retransmitted SYN? */ // 重复接收到syn包, 放弃这个包 (listen接收到一个syn包后会进入这个状态)
         if (sk->state == TCP_SYN_RECV && th->syn && th->seq+1 == sk->acked_seq) // 这个状态需要接收一个ack包
         {
             kfree_skb(skb, FREE_READ);
@@ -4725,10 +4727,10 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
         if(sk->state == TCP_SYN_SENT) // 调用connect()后会进入这个状态, 需要接收一个ack包
         {
             /* Crossed SYN or previous junk segment */
-            if(th->ack)
+            if (th->ack)
             {
                 /* We got an ack, but it's not a good ack */
-                if(!tcp_ack(sk,th,saddr,len))
+                if (!tcp_ack(sk,th,saddr,len))
                 {
                     /* Reset the ack - its an ack from a
                        different connection  [ th->rst is checked in tcp_reset()] */
@@ -4742,7 +4744,7 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
 
                 if(th->rst) return tcp_std_reset(sk,skb);
 
-                if(!th->syn)
+                if (!th->syn)
                 {
                     /* A valid ack from a different connection
                        start. Shouldn't happen but cover it */
@@ -4754,9 +4756,9 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev, struct options *opt,
                  *    Ok.. it's good. Set up sequence numbers and
                  *    move to established.
                  */
-                syn_ok=1;    /* Don't reset this connection for the syn */
-                sk->acked_seq=th->seq+1;
-                sk->fin_seq=th->seq;
+                syn_ok = 1;    /* Don't reset this connection for the syn */
+                sk->acked_seq = th->seq+1;
+                sk->fin_seq = th->seq;
                 tcp_send_ack(sk->sent_seq,sk->acked_seq,sk,th,sk->daddr);
                 tcp_set_state(sk, TCP_ESTABLISHED);
                 tcp_options(sk,th);

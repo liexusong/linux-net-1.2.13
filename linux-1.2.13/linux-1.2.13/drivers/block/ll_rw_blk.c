@@ -236,7 +236,7 @@ void set_device_ro(int dev,int flag)
 static void add_request(struct blk_dev_struct * dev, struct request * req)
 {
 	struct request * tmp;
-	short		 disk_index;
+	short disk_index;
 
 	switch (MAJOR(req->dev)) {
 		case SCSI_DISK_MAJOR:	disk_index = (MINOR(req->dev) & 0x0070) >> 4;
@@ -338,7 +338,7 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 	    && (req = blk_dev[major].current_request))
 	{
 #ifdef CONFIG_BLK_DEV_HD
-	        if (major == HD_MAJOR || major == FLOPPY_MAJOR)
+		if (major == HD_MAJOR || major == FLOPPY_MAJOR)
 #else
 		if (major == FLOPPY_MAJOR)
 #endif CONFIG_BLK_DEV_HD
@@ -359,21 +359,21 @@ static void make_request(int major,int rw, struct buffer_head * bh)
 			}
 
 			if (req->dev == bh->b_dev &&
-			    !req->sem &&
-			    req->cmd == rw &&
-			    req->sector - count == sector &&
-			    req->nr_sectors < 244)
+				!req->sem &&
+				req->cmd == rw &&
+				req->sector - count == sector &&
+				req->nr_sectors < 244)
 			{
-			    	req->nr_sectors += count;
-			    	bh->b_reqnext = req->bh;
-			    	req->buffer = bh->b_data;
-			    	req->current_nr_sectors = count;
-			    	req->sector = sector;
+				req->nr_sectors += count;
+				bh->b_reqnext = req->bh;
+				req->buffer = bh->b_data;
+				req->current_nr_sectors = count;
+				req->sector = sector;
 				mark_buffer_clean(bh);
-			    	req->bh = bh;
-			    	sti();
-			    	return;
-			}    
+				req->bh = bh;
+				sti();
+				return;
+			}
 
 			req = req->next;
 		}
@@ -538,7 +538,7 @@ void ll_rw_swap_file(int rw, int dev, unsigned int *b, int nb, char *buf)
 		printk("Can't swap to read-only device 0x%X\n",dev);
 		return;
 	}
-	
+
 	buffersize = PAGE_SIZE / nb;
 
 	for (i=0; i<nb; i++, buf += buffersize)
