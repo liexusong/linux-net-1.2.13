@@ -194,7 +194,8 @@ build_options(struct iphdr *iph, struct options *opt)
  *	Take an skb, and fill in the MAC header.
  */
 
-static int ip_send(struct sk_buff *skb, unsigned long daddr, int len, struct device *dev, unsigned long saddr)
+static int ip_send(struct sk_buff *skb, unsigned long daddr,
+				   int len, struct device *dev, unsigned long saddr)
 {
 	int mac = 0;
 
@@ -203,8 +204,9 @@ static int ip_send(struct sk_buff *skb, unsigned long daddr, int len, struct dev
 	if (dev->hard_header)
 	{
 		/*
-		 *	Build a hardware header. Source address is our mac, destination unknown
-		 *  	(rebuild header will sort this out)
+		 * Build a hardware header. Source address is our mac, destination unknown
+		 *  (rebuild header will sort this out)
+		 * eth_header()
 		 */
 		mac = dev->hard_header(skb->data, dev, ETH_P_IP, NULL, NULL, len, skb);
 		if (mac < 0)
@@ -226,9 +228,17 @@ int ip_id_count = 0;
  * routing/ARP tables to select a device struct.
  */
 // 创建IP头部
-int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long daddr,
-		struct device **dev, int type, struct options *opt, int len, int tos, int ttl)
-{
+int ip_build_header(
+	struct sk_buff *skb,
+	unsigned long saddr,
+	unsigned long daddr,
+	struct device **dev,
+	int type,
+	struct options *opt,
+	int len,
+	int tos,
+	int ttl
+) {
 	static struct options optmem;
 	struct iphdr *iph;
 	struct rtable *rt;
@@ -245,14 +255,15 @@ int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long dadd
 
 #ifdef CONFIG_INET_MULTICAST
 	if(MULTICAST(daddr) && *dev==NULL && skb->sk && *skb->sk->ip_mc_name)
-		*dev=dev_get(skb->sk->ip_mc_name);
+		*dev = dev_get(skb->sk->ip_mc_name);
 #endif
+
 	if (*dev == NULL)
 	{
 		if(skb->localroute)
 			rt = ip_rt_local(daddr, &optmem, &src);
 		else
-			rt = ip_rt_route(daddr, &optmem, &src); // 根据目标IP找到一个转发的路由
+			rt = ip_rt_route(daddr, &optmem, &src); // 根据目标IP找路由
 		if (rt == NULL)
 		{
 			ip_statistics.IpOutNoRoutes++;
@@ -302,11 +313,10 @@ int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long dadd
 		raddr = daddr;
 
 	/*
-	 *	Now build the MAC header.
+	 * Now build the MAC header.
 	 */
-
-	tmp = ip_send(skb, raddr, len, *dev, saddr);
-	buff += tmp;
+	tmp = ip_send(skb, raddr, len, *dev, saddr); // 构建MAC头部
+	buff += tmp; // 移动到MAC头部后
 	len -= tmp;
 
 	/*
@@ -330,7 +340,7 @@ int ip_build_header(struct sk_buff *skb, unsigned long saddr, unsigned long dadd
 	if(type == IPPROTO_RAW)
 		return (tmp);
 
-	iph = (struct iphdr *)buff;
+	iph = (struct iphdr *)buff; // IP头部
 	iph->version  = 4;
 	iph->tos      = tos;
 	iph->frag_off = 0;
@@ -1487,7 +1497,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	Tag the ip header of this packet so we can find it
 	 */
 
-	skb->ip_hdr = iph;
+	skb->ip_hdr = iph; // 留给 raw socket 使用
 
 	/*
 	 *	Is the datagram acceptable?
@@ -1497,7 +1507,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	3.	Checksums correctly. [Speed optimisation for later, skip loopback checksums]
 	 *	(4.	We ought to check for IP multicast addresses and undefined types.. does this matter ?)
 	 */
-
+	// 判断IP头部是否合法
 	if (skb->len<sizeof(struct iphdr) ||
 		iph->ihl<5 ||
 		iph->version != 4 ||
@@ -1515,9 +1525,10 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 #ifdef	CONFIG_IP_FIREWALL
 
-	if ((err=ip_fw_chk(iph,dev,ip_fw_blk_chain,ip_fw_blk_policy, 0))!=1)
+	// 是否被防火墙过滤了
+	if ((err = ip_fw_chk(iph, dev, ip_fw_blk_chain, ip_fw_blk_policy, 0)) != 1)
 	{
-		if(err==-1)
+		if(err == -1)
 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0, dev);
 		kfree_skb(skb, FREE_WRITE);
 		return 0;
@@ -1530,17 +1541,17 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	is IP we can trim to the true length of the frame.
 	 */
 
-	skb->len=ntohs(iph->tot_len);
+	skb->len = ntohs(iph->tot_len);
 
 	/*
 	 *	Next analyse the packet for options. Studies show under one packet in
 	 *	a thousand have options....
 	 */
 
-	if (iph->ihl != 5)
+	if (iph->ihl != 5) // 如果有 IP 选项
 	{  	/* Fast path for the typical optionless IP packet. */
 		memset((char *) &opt, 0, sizeof(opt));
-		if (do_options(iph, &opt) != 0)
+		if (do_options(iph, &opt) != 0) // 处理 IP 选项
 			return 0;
 		opts_p = 1;
 	}
@@ -1549,16 +1560,16 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	Remember if the frame is fragmented.
 	 */
 
-	if(iph->frag_off) // 是否分片
+	if (iph->frag_off) // 是否分片
 	{
 		if (iph->frag_off & 0x0020)
-			is_frag|=1;
+			is_frag |= 1;
+
 		/*
 		 *	Last fragment ?
 		 */
-
 		if (ntohs(iph->frag_off) & 0x1fff) // 最后一个分片
-			is_frag|=2;
+			is_frag |= 2;
 	}
 
 	/*
@@ -1578,10 +1589,10 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		/*
 		 *	Don't forward multicast or broadcast frames.
 		 */
-
-		if(skb->pkt_type != PACKET_HOST || brd==IS_BROADCAST)
+		// 如果当前数据包不是发给此机器或者不是广播数据包，丢弃此数据包
+		if(skb->pkt_type != PACKET_HOST || brd == IS_BROADCAST)
 		{
-			kfree_skb(skb,FREE_WRITE);
+			kfree_skb(skb, FREE_WRITE);
 			return 0;
 		}
 
@@ -1607,30 +1618,32 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 
 #ifdef CONFIG_IP_MULTICAST
 
-	if(brd==IS_MULTICAST && iph->daddr!=IGMP_ALL_HOSTS && !(dev->flags&IFF_LOOPBACK))
+	if (brd == IS_MULTICAST
+		&& iph->daddr != IGMP_ALL_HOSTS
+		&& !(dev->flags&IFF_LOOPBACK))
 	{
 		/*
 		 *	Check it is for one of our groups
 		 */
-		struct ip_mc_list *ip_mc=dev->ip_mc_list;
+		struct ip_mc_list *ip_mc = dev->ip_mc_list;
 		do
 		{
-			if(ip_mc==NULL)
+			if (ip_mc == NULL)
 			{
 				kfree_skb(skb, FREE_WRITE);
 				return 0;
 			}
-			if(ip_mc->multiaddr==iph->daddr)
+			if (ip_mc->multiaddr == iph->daddr)
 				break;
-			ip_mc=ip_mc->next;
+			ip_mc = ip_mc->next;
 		}
-		while(1);
+		while (1);
 	}
 #endif
+
 	/*
 	 *	Account for the packet
 	 */
-
 #ifdef CONFIG_IP_ACCT
 	ip_acct_cnt(iph,dev, ip_acct_chain);
 #endif
@@ -1639,14 +1652,14 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 * Reassemble IP fragments.
 	 */
 
-	if(is_frag) // 如果是个IP分段包
+	if (is_frag) // 如果是个IP分段包
 	{
 		/* Defragment. Obtain the complete packet if there is one */
-		skb=ip_defrag(iph,skb,dev); // 重组数据包
-		if(skb==NULL)
+		skb = ip_defrag(iph,skb,dev); // 重组数据包
+		if(skb == NULL)
 			return 0;
 		skb->dev = dev;
-		iph=skb->h.iph;
+		iph = skb->h.iph;
 	}
 
 	/*
@@ -1663,26 +1676,28 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	hash = iph->protocol & (SOCK_ARRAY_SIZE-1);
 
 	/* If there maybe a raw socket we must check - if not we don't care less */
-	if((raw_sk=raw_prot.sock_array[hash])!=NULL)
+	if ((raw_sk = raw_prot.sock_array[hash]) != NULL) // raw socket 处理
 	{
-		struct sock *sknext=NULL;
+		struct sock *sknext = NULL;
 		struct sk_buff *skb1;
-		raw_sk=get_sock_raw(raw_sk, hash,  iph->saddr, iph->daddr); // 当前IP是否被raw socket监听
-		if(raw_sk)	/* Any raw sockets */
+
+		// 当前 IP 是否有 raw socket 监听
+		raw_sk = get_sock_raw(raw_sk, hash, iph->saddr, iph->daddr);
+		if (raw_sk)	/* Any raw sockets */
 		{
 			do
 			{
 				/* Find the next */
-				sknext=get_sock_raw(raw_sk->next, hash, iph->saddr, iph->daddr);
-				if(sknext)
-					skb1=skb_clone(skb, GFP_ATOMIC);
+				sknext = get_sock_raw(raw_sk->next, hash, iph->saddr, iph->daddr);
+				if (sknext)
+					skb1 = skb_clone(skb, GFP_ATOMIC);
 				else
 					break;	/* One pending raw socket left */
-				if(skb1)
-					raw_rcv(raw_sk, skb1, dev, iph->saddr,iph->daddr);
-				raw_sk=sknext;
+				if (skb1)
+					raw_rcv(raw_sk, skb1, dev, iph->saddr, iph->daddr);
+				raw_sk = sknext;
 			}
-			while(raw_sk!=NULL);
+			while (raw_sk != NULL);
 			/* Here either raw_sk is the last raw socket, or NULL if none */
 			/* We deliver to the last raw socket AFTER the protocol checks as it avoids a surplus copy */
 		}
@@ -1692,10 +1707,8 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 *	skb->h.raw now points at the protocol beyond the IP header.
 	 */
 
-	hash = iph->protocol & (MAX_INET_PROTOS -1); // 查找上层协议
-	for (ipprot = (struct inet_protocol *)inet_protos[hash];
-		 ipprot != NULL;
-		 ipprot=(struct inet_protocol *)ipprot->next)
+	hash = iph->protocol & (MAX_INET_PROTOS -1); // 查找传输层协议(如UDP/TCP)
+	for (ipprot = inet_protos[hash]; ipprot != NULL; ipprot = ipprot->next)
 	{
 		struct sk_buff *skb2;
 
@@ -1717,6 +1730,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		{
 			skb2 = skb;
 		}
+
 		flag = 1;
 
 	   /*
@@ -1724,10 +1738,10 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 		* based on the datagram protocol.  We should really
 		* check the protocol handler's return values here...
 		*/
-		// 上层协议处理(比如TCP/UDP)
-		ipprot->handler(skb2, dev, opts_p ? &opt : 0, iph->daddr,
-				(ntohs(iph->tot_len) - (iph->ihl * 4)),
-				iph->saddr, 0, ipprot);
+		// 传输层协议处理方法，如 TCP 协议对应的是 tcp_rcv() 函数
+		ipprot->handler(skb2, dev, opts_p ? &opt : 0,
+						iph->daddr, (ntohs(iph->tot_len) - (iph->ihl * 4)),
+						iph->saddr, 0, ipprot);
 	}
 
 	/*
@@ -1737,7 +1751,7 @@ int ip_rcv(struct sk_buff *skb, struct device *dev, struct packet_type *pt)
 	 * ICMP reply messages get queued up for transmission...)
 	 */
 
-	if(raw_sk!=NULL)	/* Shift to last raw user */
+	if (raw_sk != NULL)	/* Shift to last raw user */
 		raw_rcv(raw_sk, skb, dev, iph->saddr, iph->daddr);
 	else if (!flag)		/* Free and report errors */ // 这里是找不到上层协议
 	{

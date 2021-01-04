@@ -81,10 +81,15 @@ void eth_setup(char *str, int *ints)
  *	daddr=NULL	means leave destination address (eg unresolved arp)
  */
 
-int eth_header(unsigned char *buff, struct device *dev, unsigned short type,
-	   void *daddr, void *saddr, unsigned len,
-	   struct sk_buff *skb)
-{
+int eth_header(
+	unsigned char *buff,
+	struct device *dev,
+	unsigned short type,
+	void *daddr,
+	void *saddr,
+	unsigned len,
+	struct sk_buff *skb
+) {
 	struct ethhdr *eth = (struct ethhdr *)buff;
 
 	/*
@@ -92,7 +97,7 @@ int eth_header(unsigned char *buff, struct device *dev, unsigned short type,
 	 *	in here instead. It is up to the 802.2 layer to carry protocol information.
 	 */
 
-	if(type!=ETH_P_802_3)
+	if(type != ETH_P_802_3)
 		eth->h_proto = htons(type);
 	else
 		eth->h_proto = htons(len);
@@ -102,9 +107,9 @@ int eth_header(unsigned char *buff, struct device *dev, unsigned short type,
 	 */
 
 	if(saddr)
-		memcpy(eth->h_source,saddr,dev->addr_len);
+		memcpy(eth->h_source, saddr, dev->addr_len);
 	else
-		memcpy(eth->h_source,dev->dev_addr,dev->addr_len);
+		memcpy(eth->h_source, dev->dev_addr, dev->addr_len);
 
 	/*
 	 *	Anyway, the loopback-device should never use this function...
@@ -113,7 +118,7 @@ int eth_header(unsigned char *buff, struct device *dev, unsigned short type,
 	if (dev->flags & IFF_LOOPBACK)
 	{
 		memset(eth->h_dest, 0, dev->addr_len);
-		return(dev->hard_header_len);
+		return dev->hard_header_len;
 	}
 
 	if(daddr)
@@ -173,19 +178,19 @@ unsigned short eth_type_trans(struct sk_buff *skb, struct device *dev)
 	if(*eth->h_dest&1)
 	{
 		if(memcmp(eth->h_dest,dev->broadcast, ETH_ALEN)==0)
-			skb->pkt_type=PACKET_BROADCAST;
+			skb->pkt_type=PACKET_BROADCAST; // 广播数据
 		else
-			skb->pkt_type=PACKET_MULTICAST;
+			skb->pkt_type=PACKET_MULTICAST; // 多播数据
 	}
 
 	if(dev->flags&IFF_PROMISC)
 	{
 		if(memcmp(eth->h_dest,dev->dev_addr, ETH_ALEN))
-			skb->pkt_type=PACKET_OTHERHOST;
+			skb->pkt_type=PACKET_OTHERHOST; // 不是给本机的数据
 	}
 
 	if (ntohs(eth->h_proto) >= 1536)
-		return eth->h_proto;
+		return eth->h_proto; // 返回网络层协议类型
 
 	rawp = (unsigned char *)(eth + 1);
 

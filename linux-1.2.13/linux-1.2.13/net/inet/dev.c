@@ -306,8 +306,7 @@ void dev_queue_xmit(struct sk_buff *skb, struct device *dev, int pri)
 				/* at the front or the back of the	*/
 				/* queue - front is a retransmit try	*/
 
-	if (dev == NULL)
-	{
+	if (dev == NULL) {
 		printk("dev.c: dev_queue_xmit: dev = NULL\n");
 		return;
 	}
@@ -331,8 +330,7 @@ void dev_queue_xmit(struct sk_buff *skb, struct device *dev, int pri)
 	 *	This just eliminates some race conditions, but not all...
 	 */
 
-	if (skb->next != NULL)
-	{
+	if (skb->next != NULL) {
 		/*
 		 *	Make sure we haven't missed an interrupt.
 		 */
@@ -440,7 +438,7 @@ void dev_queue_xmit(struct sk_buff *skb, struct device *dev, int pri)
  *	(protocol) levels.  It always succeeds. This is the recommended
  *	interface to use.
  */
-
+// 处理从网卡中读取到的数据包
 void netif_rx(struct sk_buff *skb)
 {
 	static int dropping = 0;
@@ -458,7 +456,7 @@ void netif_rx(struct sk_buff *skb)
 	/*
 	 *	Check that we aren't overdoing things.
 	 */
-
+	// 数据太多, 处理不过来, 丢弃这些数据
 	if (!backlog_size)
   		dropping = 0;
 	else if (backlog_size > 300)
@@ -476,7 +474,7 @@ void netif_rx(struct sk_buff *skb)
 #ifdef CONFIG_SKB_CHECK
 	IS_SKB(skb);
 #endif
-	skb_queue_tail(&backlog,skb);
+	skb_queue_tail(&backlog, skb); // 把数据包添加到backlog列表中
 	backlog_size++;
 
 	/*
@@ -484,7 +482,7 @@ void netif_rx(struct sk_buff *skb)
 	 *	hardware interrupt returns.
 	 */
 
-	mark_bh(NET_BH);
+	mark_bh(NET_BH); // 唤起 net_bh() 下半部中断
 	return;
 }
 

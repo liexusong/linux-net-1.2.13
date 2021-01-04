@@ -319,7 +319,7 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force, int
 	{
 		if (sk->wmem_alloc + size < sk->sndbuf || force)
 		{
-			struct sk_buff * c = alloc_skb(size, priority);
+			struct sk_buff *c = alloc_skb(size, priority);
 			if (c)
 			{
 				unsigned long flags;
@@ -332,7 +332,7 @@ struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force, int
 		}
 		return(NULL);
 	}
-	return(alloc_skb(size, priority));
+	return (alloc_skb(size, priority));
 }
 
 
@@ -355,7 +355,7 @@ struct sk_buff *sock_rmalloc(struct sock *sk, unsigned long size, int force, int
 		}
 		return(NULL);
 	}
-	return(alloc_skb(size, priority));
+	return (alloc_skb(size, priority));
 }
 
 
@@ -513,11 +513,11 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 		return -ENOMEM;
 	save_flags(flags);
 	cli();
-	sk->rmem_alloc+=skb->mem_len;
+	sk->rmem_alloc += skb->mem_len;
 	skb->sk=sk;
 	restore_flags(flags);
-	skb_queue_tail(&sk->receive_queue,skb);
-	if(!sk->dead)
+	skb_queue_tail(&sk->receive_queue, skb);
+	if (!sk->dead)
 		sk->data_ready(sk,skb->len);
 	return 0;
 }

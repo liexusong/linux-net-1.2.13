@@ -200,6 +200,7 @@ struct device * ip_dev_check(unsigned long addr)
 			continue;
 		return dev;
 	}
+
 	for (dev = dev_base; dev; dev = dev->next)
 	{
 		if (!(dev->flags & IFF_UP))
@@ -210,5 +211,6 @@ struct device * ip_dev_check(unsigned long addr)
 			continue;
 		return dev;
 	}
+
 	return NULL;
 }

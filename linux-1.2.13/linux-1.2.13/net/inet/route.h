@@ -28,17 +28,17 @@
 /* This is an entry in the IP routing table. */
 struct rtable
 {
-	struct rtable		*rt_next;
+	struct rtable		*rt_next;    // 连接路由列表
 	unsigned long		rt_dst;      // 目的地址
 	unsigned long		rt_mask;     // 子掩码
 	unsigned long		rt_gateway;  // 网关
-	unsigned char		rt_flags;
+	unsigned char		rt_flags;    // 路由标志位
 	unsigned char		rt_metric;
-	short			rt_refcnt;
-	unsigned long		rt_use;
+	short				rt_refcnt;   // 引用计数器
+	unsigned long		rt_use;      // 正在使用当前路由的计数器
 	unsigned short		rt_mss;
 	unsigned long		rt_window;
-	struct device		*rt_dev;
+	struct device		*rt_dev;     // 路由对应的设备
 };
 
 

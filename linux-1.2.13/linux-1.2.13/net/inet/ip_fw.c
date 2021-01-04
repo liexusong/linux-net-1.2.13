@@ -149,13 +149,13 @@ extern inline int port_match(unsigned short *portptr,int nports,unsigned short p
 int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int policy, int opt)
 {
 	struct ip_fw *f;
-	struct tcphdr		*tcp=(struct tcphdr *)((unsigned long *)ip+ip->ihl);
-	struct udphdr		*udp=(struct udphdr *)((unsigned long *)ip+ip->ihl);
-	__u32			src, dst;
-	__u16			src_port=0, dst_port=0;
-	unsigned short		f_prt=0, prt;
-	char			notcpsyn=1, frag1, match;
-	unsigned short		f_flag;
+	struct tcphdr *tcp = (struct tcphdr *)((unsigned long *)ip+ip->ihl);
+	struct udphdr *udp = (struct udphdr *)((unsigned long *)ip+ip->ihl);
+	__u32 src, dst;
+	__u16 src_port = 0, dst_port = 0;
+	unsigned short f_prt = 0, prt;
+	char notcpsyn = 1, frag1, match;
+	unsigned short f_flag;
 
 	/*
 	 *	If the chain is empty follow policy. The BSD one
@@ -181,7 +181,9 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 	 */
 
 	frag1 = ((ntohs(ip->frag_off) & IP_OFFSET) == 0);
-	if (!frag1 && (opt != 1) && (ip->protocol == IPPROTO_TCP ||
+	if (!frag1
+		&& (opt != 1)
+		&& (ip->protocol == IPPROTO_TCP ||
 			ip->protocol == IPPROTO_UDP))
 		return(1);
 
@@ -197,36 +199,36 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 	 */
 
 	dprintf1("Packet ");
-	switch(ip->protocol)
+	switch (ip->protocol)
 	{
 		case IPPROTO_TCP:
 			dprintf1("TCP ");
 			/* ports stay 0 if it is not the first fragment */
 			if (frag1) {
-				src_port=ntohs(tcp->source);
-				dst_port=ntohs(tcp->dest);
-				if(tcp->syn && !tcp->ack)
+				src_port = ntohs(tcp->source);
+				dst_port = ntohs(tcp->dest);
+				if (tcp->syn && !tcp->ack)
 					/* We *DO* have SYN, value FALSE */
 					notcpsyn=0;
 			}
-			prt=IP_FW_F_TCP;
+			prt = IP_FW_F_TCP;
 			break;
 		case IPPROTO_UDP:
 			dprintf1("UDP ");
 			/* ports stay 0 if it is not the first fragment */
 			if (frag1) {
-				src_port=ntohs(udp->source);
-				dst_port=ntohs(udp->dest);
+				src_port = ntohs(udp->source);
+				dst_port = ntohs(udp->dest);
 			}
-			prt=IP_FW_F_UDP;
+			prt = IP_FW_F_UDP;
 			break;
 		case IPPROTO_ICMP:
 			dprintf2("ICMP:%d ",((char *)portptr)[0]&0xff);
-			prt=IP_FW_F_ICMP;
+			prt = IP_FW_F_ICMP;
 			break;
 		default:
 			dprintf2("p=%d ",ip->protocol);
-			prt=IP_FW_F_ALL;
+			prt = IP_FW_F_ALL;
 			break;
 	}
 	dprint_ip(ip->saddr);
@@ -240,7 +242,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		dprintf2(":%d ",dst_port);
 	dprintf1("\n");
 
-	for (f=chain;f;f=f->fw_next)
+	for (f = chain; f; f = f->fw_next)
 	{
 		/*
 		 *	This is a bit simpler as we don't have to walk
@@ -261,14 +263,14 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		 */
 		match = 0x00;
 
-		if ((src&f->fw_smsk.s_addr)==f->fw_src.s_addr
-		&&  (dst&f->fw_dmsk.s_addr)==f->fw_dst.s_addr)
+		if ((src&f->fw_smsk.s_addr) == f->fw_src.s_addr
+			&& (dst&f->fw_dmsk.s_addr) == f->fw_dst.s_addr)
 			/* normal direction */
 			match |= 0x01;
 
-		if ((f->fw_flg & IP_FW_F_BIDIR) &&
-		    (dst&f->fw_smsk.s_addr)==f->fw_src.s_addr
-		&&  (src&f->fw_dmsk.s_addr)==f->fw_dst.s_addr)
+		if ((f->fw_flg & IP_FW_F_BIDIR)
+		    && (dst&f->fw_smsk.s_addr) == f->fw_src.s_addr
+			&& (src&f->fw_dmsk.s_addr) == f->fw_dst.s_addr)
 			/* reverse direction */
 			match |= 0x02;
 
@@ -279,7 +281,7 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 			 */
 			if(f->fw_via.s_addr && rif)
 			{
-				if(rif->pa_addr!=f->fw_via.s_addr)
+				if(rif->pa_addr != f->fw_via.s_addr)
 					continue;	/* Mismatch */
 			}
 			/*
@@ -293,8 +295,8 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 		 *	Ok the chain addresses match.
 		 */
 
-		f_prt=f->fw_flg&IP_FW_F_KIND;
-		if (f_prt!=IP_FW_F_ALL)
+		f_prt = f->fw_flg&IP_FW_F_KIND;
+		if (f_prt != IP_FW_F_ALL)
 		{
 			/*
 			 * This is actually buggy as if you set SYN flag
@@ -303,25 +305,23 @@ int ip_fw_chk(struct iphdr *ip, struct device *rif, struct ip_fw *chain, int pol
 			 * firewall entries.
 			 */
 
-			 if((f->fw_flg&IP_FW_F_TCPSYN) && notcpsyn)
+			 if ((f->fw_flg&IP_FW_F_TCPSYN) && notcpsyn)
 			 	continue;
 			/*
 			 *	Specific firewall - packet's protocol
 			 *	must match firewall's.
 			 */
 
-			if(prt!=f_prt)
+			if (prt != f_prt)
 				continue;
 
-			if(!(prt==IP_FW_F_ICMP || ((match & 0x01) &&
-				port_match(&f->fw_pts[0], f->fw_nsp, src_port,
-					f->fw_flg&IP_FW_F_SRNG) &&
-				port_match(&f->fw_pts[f->fw_nsp], f->fw_ndp, dst_port,
-					f->fw_flg&IP_FW_F_DRNG)) || ((match & 0x02) &&
-				port_match(&f->fw_pts[0], f->fw_nsp, dst_port,
-					f->fw_flg&IP_FW_F_SRNG) &&
-				port_match(&f->fw_pts[f->fw_nsp], f->fw_ndp, src_port,
-					f->fw_flg&IP_FW_F_DRNG))))
+			if (!(prt==IP_FW_F_ICMP
+				|| ((match & 0x01)
+					&& port_match(&f->fw_pts[0], f->fw_nsp, src_port, f->fw_flg&IP_FW_F_SRNG)
+					&& port_match(&f->fw_pts[f->fw_nsp], f->fw_ndp, dst_port, f->fw_flg&IP_FW_F_DRNG))
+				|| ((match & 0x02)
+					&& port_match(&f->fw_pts[0], f->fw_nsp, dst_port, f->fw_flg&IP_FW_F_SRNG)
+					&& port_match(&f->fw_pts[f->fw_nsp], f->fw_ndp, src_port, f->fw_flg&IP_FW_F_DRNG))))
 			{
 				continue;
 			}
@@ -603,7 +603,7 @@ skip_check:
 	if (chtmp_prev)
 		chtmp_prev->fw_next=ftmp;
 	else
-        	*chainptr=ftmp;
+		*chainptr=ftmp;
 	restore_flags(flags);
 	return(0);
 }

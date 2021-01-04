@@ -182,7 +182,7 @@ void put_sock(unsigned short num, struct sock *sk)
 	}
 	restore_flags(flags);
 	// mask = 11111111000000000000000000000000
-	for(mask = 0xff000000; mask != 0xffffffff; mask = (mask >> 8) | mask)
+	for (mask = 0xff000000; mask != 0xffffffff; mask = (mask >> 8) | mask)
 	{
 		if ((mask & sk->saddr) &&
 		    (mask & sk->saddr) != (mask & 0xffffffff))
@@ -191,13 +191,14 @@ void put_sock(unsigned short num, struct sock *sk)
 			break;
 		}
 	}
+
 	cli();
 	sk1 = sk->prot->sock_array[num];
-	for(sk2 = sk1; sk2 != NULL; sk2=sk2->next)
+	for(sk2 = sk1; sk2 != NULL; sk2 = sk2->next)
 	{
 		if (!(sk2->saddr & mask))
 		{
-			if (sk2 == sk1)
+			if (sk2 == sk1) // First node
 			{
 				sk->next = sk->prot->sock_array[num];
 				sk->prot->sock_array[num] = sk;
@@ -1360,8 +1361,11 @@ static int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
  * rather than somebody listening to any address..
  */
 
-struct sock *get_sock(struct proto *prot, unsigned short num,
-	unsigned long raddr, unsigned short rnum, unsigned long laddr)
+struct sock *get_sock(struct proto *prot,
+					  unsigned short num,
+					  unsigned long raddr,
+					  unsigned short rnum,
+					  unsigned long laddr)
 {
 	struct sock *s;
 	struct sock *result = NULL;
@@ -1388,32 +1392,38 @@ struct sock *get_sock(struct proto *prot, unsigned short num,
 		if(s->dead && (s->state == TCP_CLOSE))
 			continue;
 		/* local address matches? */
-		if (s->saddr) {
+		if (s->saddr) { // 如果有源IP地址
 			if (s->saddr != laddr)
 				continue;
 			score++;
 		}
+
 		/* remote address matches? */
 		if (s->daddr) {
 			if (s->daddr != raddr)
 				continue;
 			score++;
 		}
+
 		/* remote port matches? */
 		if (s->dummy_th.dest) {
 			if (s->dummy_th.dest != rnum)
 				continue;
 			score++;
 		}
+
 		/* perfect match? */
 		if (score == 3)
 			return s;
+
 		/* no, check if this is the best so far.. */
 		if (score <= badness)
 			continue;
+
 		result = s;
 		badness = score;
   	}
+
   	return result;
 }
 
@@ -1422,23 +1432,23 @@ struct sock *get_sock(struct proto *prot, unsigned short num,
  */
 
 struct sock *get_sock_raw(struct sock *sk,
-				unsigned short num,
-				unsigned long raddr,
-				unsigned long laddr)
+						  unsigned short num,
+						  unsigned long raddr,
+						  unsigned long laddr)
 {
 	struct sock *s;
 
-	s=sk;
+	s = sk;
 
-	for(; s != NULL; s = s->next)
+	for (; s != NULL; s = s->next)
 	{
 		if (s->num != num)
 			continue;
 		if(s->dead && (s->state == TCP_CLOSE))
 			continue;
-		if(s->daddr && s->daddr!=raddr)
+		if(s->daddr && s->daddr != raddr)
 			continue;
- 		if(s->saddr && s->saddr!=laddr)
+ 		if(s->saddr && s->saddr != laddr)
 			continue;
 		return(s);
   	}
@@ -1451,9 +1461,10 @@ struct sock *get_sock_raw(struct sock *sk,
  */
 
 struct sock *get_sock_mcast(struct sock *sk,
-				unsigned short num,
-				unsigned long raddr,
-				unsigned short rnum, unsigned long laddr)
+							unsigned short num,
+							unsigned long raddr,
+							unsigned short rnum,
+							unsigned long laddr)
 {
 	struct sock *s;
 	unsigned short hnum;

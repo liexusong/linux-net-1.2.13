@@ -4,7 +4,7 @@
  *	Authors:	Alan Cox <iiitac@pyr.swan.ac.uk>
  *			Florian La Roche <rzsfl@rz.uni-sb.de>
  *
- *	Fixes:	
+ *	Fixes:
  *		Alan Cox	:	Fixed the worst of the load balancer bugs.
  *		Dave Platt	:	Interrupt stacking fix
  *
@@ -387,7 +387,7 @@ void kfree_skb(struct sk_buff *skb, int rw)
  *	Allocate a new skbuff. We do this ourselves so we can fill in a few 'private'
  *	fields and also do memory statistics to find all the [BEEP] leaks.
  */
-struct sk_buff *alloc_skb(unsigned int size,int priority)
+struct sk_buff *alloc_skb(unsigned int size, int priority)
 {
 	struct sk_buff *skb;
 	unsigned long flags;

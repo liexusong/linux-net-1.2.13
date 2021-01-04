@@ -1,9 +1,9 @@
 /*
- *	IP firewalling code. This is taken from 4.4BSD. Please note the 
+ *	IP firewalling code. This is taken from 4.4BSD. Please note the
  *	copyright message below. As per the GPL it must be maintained
  *	and the licenses thus do not conflict. While this port is subject
- *	to the GPL I also place my modifications under the original 
- *	license in recognition of the original copyright. 
+ *	to the GPL I also place my modifications under the original
+ *	license in recognition of the original copyright.
  *
  *	Ported from BSD to Linux,
  *		Alan Cox 22/Nov/1994.
@@ -38,11 +38,11 @@
  * 	flags and num_*_ports are stored in host byte order (of course).
  * 	Port numbers are stored in HOST byte order.
  */
- 
+
 #ifndef _IP_FW_H
 #define _IP_FW_H
 
-struct ip_fw 
+struct ip_fw
 {
 	struct ip_fw  *fw_next;			/* Next firewall on chain */
 	struct in_addr fw_src, fw_dst;		/* Source and destination IP addr */
@@ -62,9 +62,9 @@ struct ip_fw
  *	Values for "flags" field .
  */
 
-#define IP_FW_F_ALL	0x000	/* This is a universal packet firewall*/
-#define IP_FW_F_TCP	0x001	/* This is a TCP packet firewall      */
-#define IP_FW_F_UDP	0x002	/* This is a UDP packet firewall      */
+#define IP_FW_F_ALL		0x000	/* This is a universal packet firewall*/
+#define IP_FW_F_TCP		0x001	/* This is a TCP packet firewall      */
+#define IP_FW_F_UDP		0x002	/* This is a UDP packet firewall      */
 #define IP_FW_F_ICMP	0x003	/* This is a ICMP packet firewall     */
 #define IP_FW_F_KIND	0x003	/* Mask to isolate firewall kind      */
 #define IP_FW_F_ACCEPT	0x004	/* This is an accept firewall (as     *
@@ -79,22 +79,22 @@ struct ip_fw
 				 * order).                            *
 				 * (ports[0] <= port <= ports[1])     *
 				 *                                    */
-#define IP_FW_F_PRN	0x020	/* In verbose mode print this firewall*/
+#define IP_FW_F_PRN		0x020	/* In verbose mode print this firewall*/
 #define IP_FW_F_BIDIR	0x040	/* For bidirectional firewalls        */
 #define IP_FW_F_TCPSYN	0x080	/* For tcp packets-check SYN only     */
 #define IP_FW_F_ICMPRPL 0x100	/* Send back icmp unreachable packet  */
 #define IP_FW_F_MASK	0x1FF	/* All possible flag bits mask        */
 
-/*    
+/*
  *	New IP firewall options for [gs]etsockopt at the RAW IP level.
  *	Unlike BSD Linux inherits IP options so you don't have to use
  *	a raw socket for this. Instead we check rights in the calls.
- */     
+ */
 
 #define IP_FW_BASE_CTL   64
 
 #define IP_FW_ADD_BLK    (IP_FW_BASE_CTL)
-#define IP_FW_ADD_FWD    (IP_FW_BASE_CTL+1)   
+#define IP_FW_ADD_FWD    (IP_FW_BASE_CTL+1)
 #define IP_FW_CHK_BLK    (IP_FW_BASE_CTL+2)
 #define IP_FW_CHK_FWD    (IP_FW_BASE_CTL+3)
 #define IP_FW_DEL_BLK    (IP_FW_BASE_CTL+4)
