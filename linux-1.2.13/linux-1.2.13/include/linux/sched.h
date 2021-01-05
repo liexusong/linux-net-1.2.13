@@ -161,9 +161,9 @@ struct task_struct {
 	int did_exec:1;
 	int pid,pgrp,tty_old_pgrp,session,leader;
 	int	groups[NGROUPS];
-	/* 
+	/*
 	 * pointers to (original) parent process, youngest child, younger sibling,
-	 * older sibling, respectively.  (p->father can be replaced with 
+	 * older sibling, respectively.  (p->father can be replaced with
 	 * p->p_pptr->pid)
 	 */
 	struct task_struct *p_opptr, *p_pptr, *p_cptr, *p_ysptr, *p_osptr;
@@ -174,7 +174,7 @@ struct task_struct {
 	unsigned long it_real_value, it_prof_value, it_virt_value;
 	unsigned long it_real_incr, it_prof_incr, it_virt_incr;
 	long utime, stime, cutime, cstime, start_time;
-	struct rlimit rlim[RLIM_NLIMITS]; 
+	struct rlimit rlim[RLIM_NLIMITS];
 	unsigned short used_math;
 	char comm[16];
 /* file system info */
@@ -349,9 +349,9 @@ extern inline void remove_wait_queue(struct wait_queue ** p, struct wait_queue *
 #endif
 }
 
-extern inline void select_wait(struct wait_queue ** wait_address, select_table * p)
+extern inline void select_wait(struct wait_queue **wait_address, select_table *p)
 {
-	struct select_table_entry * entry;
+	struct select_table_entry *entry;
 
 	if (!p || !wait_address)
 		return;
@@ -361,7 +361,7 @@ extern inline void select_wait(struct wait_queue ** wait_address, select_table *
 	entry->wait_address = wait_address;
 	entry->wait.task = current;
 	entry->wait.next = NULL;
-	add_wait_queue(wait_address,&entry->wait);
+	add_wait_queue(wait_address, &entry->wait);
 	p->nr++;
 }
 
@@ -381,7 +381,7 @@ extern inline void up(struct semaphore * sem)
 {
 	sem->count++;
 	wake_up(&sem->wait);
-}	
+}
 
 #define REMOVE_LINKS(p) do { unsigned long flags; \
 	save_flags(flags) ; cli(); \
