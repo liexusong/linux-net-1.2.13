@@ -75,7 +75,7 @@ void reset_timer(struct sock *t, int timeout, unsigned long len)
 #endif
 
     t->timer.expires = len;
-    add_timer (&t->timer);
+    add_timer(&t->timer);
 }
 
 

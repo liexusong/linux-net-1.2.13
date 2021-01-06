@@ -1248,7 +1248,7 @@ static void tcp_send_skb(struct sock *sk, struct sk_buff *skb)
          *    unroutable FIN's and other things.
          */
         // 将会调用: ip_queue_xmit()
-        sk->prot->queue_xmit(sk, skb->dev, skb, 0); // 直接发送出去
+        sk->prot->queue_xmit(sk, skb->dev, skb, 0); // 直接发送出去(这个函数会把skb放置到sk的send_head队列中)
 
         /*
          *    Set for next retransmit based on expected ACK time.
@@ -1380,7 +1380,7 @@ static void tcp_send_ack(unsigned long sequence,
     /*
      *    Put in the IP header and routing stuff.
      */
-
+    // 调用: ip_build_header()
     tmp = sk->prot->build_header(buff, sk->saddr, daddr,
                                  &dev, IPPROTO_TCP, sk->opt,
                                  MAX_ACK_SIZE, sk->ip_tos, sk->ip_ttl);
@@ -1391,7 +1391,7 @@ static void tcp_send_ack(unsigned long sequence,
     }
 
     buff->len += tmp;
-    t1 =(struct tcphdr *)((char *)t1 + tmp);
+    t1 = (struct tcphdr *)((char *)t1 + tmp);
 
     memcpy(t1, th, sizeof(*t1));
 
@@ -1399,12 +1399,12 @@ static void tcp_send_ack(unsigned long sequence,
      *    Swap the send and the receive.
      */
 
-    t1->dest = th->source;
-    t1->source = th->dest;
-    t1->seq = ntohl(sequence);
-    t1->ack = 1;
+    t1->dest = th->source;     // 设置目标端口
+    t1->source = th->dest;     // 设置源端口
+    t1->seq = ntohl(sequence); // 设置序列号
+    t1->ack = 1;               // 设置ACK标志
     sk->window = tcp_select_window(sk);
-    t1->window = ntohs(sk->window);
+    t1->window = ntohs(sk->window); // 设置窗口大小
     t1->res1 = 0;
     t1->res2 = 0;
     t1->rst = 0;
@@ -1418,7 +1418,7 @@ static void tcp_send_ack(unsigned long sequence,
      *    is on we are just doing an ACK timeout and need to switch
      *    to a keepalive.
      */
-    if (ack == sk->acked_seq) {
+    if (ack == sk->acked_seq) { // 如果要应答的序列号等于期望从远端接收的下一个序列号(表示所有数据包都已经被应答了)
         sk->ack_backlog = 0;
         sk->bytes_rcv = 0;
         sk->ack_timed = 0;
@@ -1435,12 +1435,12 @@ static void tcp_send_ack(unsigned long sequence,
         }
       }
 
-      /*
-       *    Fill in the packet and send it
-       */
+    /*
+     *    Fill in the packet and send it
+     */
 
     t1->ack_seq = ntohl(ack);
-    t1->doff = sizeof(*t1)/4;
+    t1->doff = sizeof(*t1) / 4;
     tcp_send_check(t1, sk->saddr, daddr, sizeof(*t1), sk);
 
     if (sk->debug)
@@ -1448,7 +1448,7 @@ static void tcp_send_ack(unsigned long sequence,
 
     tcp_statistics.TcpOutSegs++;
 
-    sk->prot->queue_xmit(sk, dev, buff, 1);
+    sk->prot->queue_xmit(sk, dev, buff, 1); // 把数据包发送出去
 }
 
 
@@ -1479,7 +1479,7 @@ extern __inline int tcp_build_header(struct tcphdr *th, struct sock *sk, int pus
  *    This routine copies from a user buffer into a socket,
  *    and starts the transmit system.
  */
-
+// 对应 write() 系统调用的底层实现
 static int tcp_write(struct sock *sk, unsigned char *from,
                      int len, int nonblock, unsigned flags)
 {
@@ -1492,23 +1492,25 @@ static int tcp_write(struct sock *sk, unsigned char *from,
     struct proto *prot;
     struct device *dev = NULL;
 
-    sk->inuse=1;
+    sk->inuse = 1;
+
     prot = sk->prot;
-    while(len > 0) {
-        if (sk->err) {            /* Stop on an error */
+
+    while (len > 0) {             // 直到把from数据全部发送出去
+        if (sk->err) {            /* Stop on an error */ // 如果有错误退出
             release_sock(sk);
             if (copied)
-                return(copied);
+                return copied;
             tmp = -sk->err;
             sk->err = 0;
-            return(tmp);
+            return tmp ;
         }
 
         /*
          *    First thing we do is make sure that we are established.
          */
 
-        if (sk->shutdown & SEND_SHUTDOWN) {
+        if (sk->shutdown & SEND_SHUTDOWN) { // 如果socket被关闭了
             release_sock(sk);
             sk->err = EPIPE;
             if (copied)
@@ -1520,7 +1522,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
         /*
          *    Wait for a connection to finish.
          */
-
+        // 如果连接还没建立, 那么等待连接建立完成
         while (sk->state != TCP_ESTABLISHED && sk->state != TCP_CLOSE_WAIT) {
             if (sk->err) {
                 release_sock(sk);
@@ -1531,6 +1533,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
                 return(tmp);
             }
 
+            // 因为只有这两种状态才是等待连接
             if (sk->state != TCP_SYN_SENT && sk->state != TCP_SYN_RECV) {
                 release_sock(sk);
                 if (copied)
@@ -1545,6 +1548,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
                 if (sk->keepopen) {
                     send_sig(SIGPIPE, current, 0);
                 }
+
                 return(-EPIPE);
             }
 
@@ -1574,31 +1578,31 @@ static int tcp_write(struct sock *sk, unsigned char *from,
             sti();
         }
 
-    /*
-     * The following code can result in copy <= if sk->mss is ever
-     * decreased.  It shouldn't be.  sk->mss is min(sk->mtu, sk->max_window).
-     * sk->mtu is constant once SYN processing is finished.  I.e. we
-     * had better not get here until we've seen his SYN and at least one
-     * valid ack.  (The SYN sets sk->mtu and the ack sets sk->max_window.)
-     * But ESTABLISHED should guarantee that.  sk->max_window is by definition
-     * non-decreasing.  Note that any ioctl to set user_mss must be done
-     * before the exchange of SYN's.  If the initial ack from the other
-     * end has a window of 0, max_window and thus mss will both be 0.
-     */
+        /*
+         * The following code can result in copy <= if sk->mss is ever
+         * decreased.  It shouldn't be.  sk->mss is min(sk->mtu, sk->max_window).
+         * sk->mtu is constant once SYN processing is finished.  I.e. we
+         * had better not get here until we've seen his SYN and at least one
+         * valid ack.  (The SYN sets sk->mtu and the ack sets sk->max_window.)
+         * But ESTABLISHED should guarantee that.  sk->max_window is by definition
+         * non-decreasing.  Note that any ioctl to set user_mss must be done
+         * before the exchange of SYN's.  If the initial ack from the other
+         * end has a window of 0, max_window and thus mss will both be 0.
+         */
 
-    /*
-     *    Now we need to check if we have a half built packet.
-     */
+        /*
+         *    Now we need to check if we have a half built packet.
+         */
+        if ((skb = tcp_dequeue_partial(sk)) != NULL) { // 如果partial队列不为空
+            int hdrlen;
 
-        if ((skb = tcp_dequeue_partial(sk)) != NULL) {
-                int hdrlen;
-
-                 /* IP header + TCP header */
-            hdrlen = ((unsigned long)skb->h.th - (unsigned long)skb->data)
-                     + sizeof(struct tcphdr);
+            /* MAC头部 + IP头部 + TCP头部 */
+            hdrlen = (unsigned long)skb->h.th
+                      - (unsigned long)skb->data
+                      + sizeof(struct tcphdr);
 
             /* Add more stuff to the end of skb->len */
-            if (!(flags & MSG_OOB)) {
+            if (!(flags & MSG_OOB)) { // 如果不是紧急数据
                 copy = min(sk->mss - (skb->len - hdrlen), len);
                 /* FIXME: this is really a bug. */
                 if (copy <= 0) {
@@ -1611,7 +1615,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
                 from += copy;
                 copied += copy;
                 len -= copy;
-                sk->write_seq += copy;
+                sk->write_seq += copy; // 更新写到缓冲区的最大序列号
             }
 
             if ((skb->len - hdrlen) >= sk->mss
@@ -1623,21 +1627,22 @@ static int tcp_write(struct sock *sk, unsigned char *from,
             continue;
         }
 
-    /*
-     * We also need to worry about the window.
-      * If window < 1/2 the maximum window we've seen from this
-      *   host, don't use it.  This is sender side
-      *   silly window prevention, as specified in RFC1122.
-      *   (Note that this is different than earlier versions of
-      *   SWS prevention, e.g. RFC813.).  What we actually do is
-     *   use the whole MSS.  Since the results in the right
-     *   edge of the packet being outside the window, it will
-     *   be queued for later rather than sent.
-     */
+        /*
+         * We also need to worry about the window.
+         * If window < 1/2 the maximum window we've seen from this
+         *   host, don't use it.  This is sender side
+         *   silly window prevention, as specified in RFC1122.
+         *   (Note that this is different than earlier versions of
+         *   SWS prevention, e.g. RFC813.).  What we actually do is
+         *   use the whole MSS.  Since the results in the right
+         *   edge of the packet being outside the window, it will
+         *   be queued for later rather than sent.
+         */
 
-        copy = sk->window_seq - sk->write_seq;
+        copy = sk->window_seq - sk->write_seq; // 窗口还有多少空间?
         if (copy <= 0 || copy < (sk->max_window >> 1) || copy > sk->mss)
             copy = sk->mss;
+
         if (copy > len)
             copy = len;
 
@@ -1646,7 +1651,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
      */
 
         send_tmp = NULL;
-        if (copy < sk->mss && !(flags & MSG_OOB)) {
+        if (copy < sk->mss && !(flags & MSG_OOB)) { // 如果要发送的数据小于TCP段的大小, 并且不是紧急数据
             /*
              *    We will release the socket in case we sleep here.
              */
@@ -1656,7 +1661,9 @@ static int tcp_write(struct sock *sk, unsigned char *from,
              *    mss is always <= mtu
              */
             skb = prot->wmalloc(sk, sk->mtu + 128 + prot->max_header, 0, GFP_KERNEL);
+
             sk->inuse = 1;
+
             send_tmp = skb;
         }
         else
@@ -1665,14 +1672,16 @@ static int tcp_write(struct sock *sk, unsigned char *from,
              *    We will release the socket in case we sleep here.
              */
             release_sock(sk);
+
             skb = prot->wmalloc(sk, copy + prot->max_header , 0, GFP_KERNEL);
-              sk->inuse = 1;
+
+            sk->inuse = 1;
         }
 
         /*
          *    If we didn't get any memory, we need to sleep.
          */
-
+        // 如果内存不足, 那么先等待有足够的内存
         if (skb == NULL) {
             sk->socket->flags |= SO_NOSPACE;
             if (nonblock) {
@@ -1713,7 +1722,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
         skb->len = 0;
         skb->sk = sk;
         skb->free = 0;
-        skb->localroute = sk->localroute|(flags&MSG_DONTROUTE);
+        skb->localroute = sk->localroute | (flags&MSG_DONTROUTE);
 
         buff = skb->data;
 
@@ -1721,7 +1730,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
          * FIXME: we need to optimize this.
          * Perhaps some hints here would be good.
          */
-
+        // 构建IP头部和MAC头部
         tmp = prot->build_header(skb, sk->saddr, sk->daddr,
                                  &dev, IPPROTO_TCP, sk->opt,
                                  skb->mem_len, sk->ip_tos, sk->ip_ttl);
@@ -1738,6 +1747,7 @@ static int tcp_write(struct sock *sk, unsigned char *from,
         buff += tmp;
         skb->h.th =(struct tcphdr *)buff;
 
+        // 构建TCP头部
         tmp = tcp_build_header((struct tcphdr *)buff, sk, len-copy);
         if (tmp < 0) {
             prot->wfree(sk, skb->mem_addr, skb->mem_len);
@@ -1747,12 +1757,13 @@ static int tcp_write(struct sock *sk, unsigned char *from,
             return(tmp);
         }
 
-        if (flags & MSG_OOB) {
+        if (flags & MSG_OOB) { // 如果是紧急数据, 设置紧急标志
             ((struct tcphdr *)buff)->urg = 1;
             ((struct tcphdr *)buff)->urg_ptr = ntohs(copy);
         }
 
         skb->len += tmp;
+
         memcpy_fromfs(buff+tmp, from, copy);
 
         from += copy;
@@ -1772,17 +1783,16 @@ static int tcp_write(struct sock *sk, unsigned char *from,
 
     sk->err = 0;
 
-/*
- *    Nagle's rule. Turn Nagle off with TCP_NODELAY for highly
- *    interactive fast network servers. It's meant to be on and
- *    it really improves the throughput though not the echo time
- *    on my slow slip link - Alan
- */
+    /*
+     *    Nagle's rule. Turn Nagle off with TCP_NODELAY for highly
+     *    interactive fast network servers. It's meant to be on and
+     *    it really improves the throughput though not the echo time
+     *    on my slow slip link - Alan
+     */
 
-/*
- *    Avoid possible race on send_tmp - c/o Johannes Stille
- */
-
+    /*
+     *    Avoid possible race on send_tmp - c/o Johannes Stille
+     */
     if (sk->partial && ((!sk->packets_out)
         /* If not nagling we can send on the before case too.. */
         || (sk->nonagle && before(sk->write_seq , sk->window_seq))))
@@ -1821,7 +1831,7 @@ static int tcp_sendto(struct sock *sk, unsigned char *from,
  *    Send an ack if one is backlogged at this point. Ought to merge
  *    this with tcp_send_ack().
  */
-
+// 发送一个空数据的ACK包(告诉对端自己的窗口大小, 触发对端发送过程)
 static void tcp_read_wakeup(struct sock *sk)
 {
     int tmp;
@@ -1829,7 +1839,7 @@ static void tcp_read_wakeup(struct sock *sk)
     struct tcphdr *t1;
     struct sk_buff *buff;
 
-    if (!sk->ack_backlog)
+    if (!sk->ack_backlog) // 未发送应答的数据包数量(如果是0表示全部数据包都应答了)
         return;
 
     /*
@@ -1875,9 +1885,9 @@ static void tcp_read_wakeup(struct sock *sk)
     }
 
     buff->len += tmp;
-    t1 =(struct tcphdr *)(buff->data +tmp);
+    t1 = (struct tcphdr *)(buff->data + tmp);
 
-    memcpy(t1,(void *) &sk->dummy_th, sizeof(*t1));
+    memcpy(t1, (void *)&sk->dummy_th, sizeof(*t1));
     t1->seq = htonl(sk->sent_seq);
     t1->ack = 1;
     t1->res1 = 0;
@@ -1891,9 +1901,12 @@ static void tcp_read_wakeup(struct sock *sk)
     sk->window = tcp_select_window(sk);
     t1->window = ntohs(sk->window);
     t1->ack_seq = ntohl(sk->acked_seq);
-    t1->doff = sizeof(*t1)/4;
+    t1->doff = sizeof(*t1) / 4;
+
     tcp_send_check(t1, sk->saddr, sk->daddr, sizeof(*t1), sk);
+
     sk->prot->queue_xmit(sk, dev, buff, 1);
+
     tcp_statistics.TcpOutSegs++;
 }
 
@@ -1904,7 +1917,6 @@ static void tcp_read_wakeup(struct sock *sk)
  *     It should consider sending an ACK to let the
  *     other end know we now have a bigger window.
  */
-
 static void cleanup_rbuf(struct sock *sk)
 {
     unsigned long flags;
@@ -1912,20 +1924,20 @@ static void cleanup_rbuf(struct sock *sk)
     struct sk_buff *skb;
     unsigned long rspace;
 
-    if(sk->debug)
+    if (sk->debug)
         printk("cleaning rbuf for sk=%p\n", sk);
 
     save_flags(flags);
     cli();
 
-    left = sk->prot->rspace(sk);
+    left = sk->prot->rspace(sk); // 读缓冲区剩余空间
 
     /*
      *    We have to loop through all the buffer headers,
      *    and try to free up all the space we can.
      */
 
-    while ((skb=skb_peek(&sk->receive_queue)) != NULL) {
+    while ((skb = skb_peek(&sk->receive_queue)) != NULL) {
         if (!skb->used || skb->users)
             break;
         skb_unlink(skb);
@@ -1942,9 +1954,9 @@ static void cleanup_rbuf(struct sock *sk)
      *    TCP_WINDOW_DIFF.
      */
 
-    if(sk->debug)
-        printk("sk->rspace = %lu, was %lu\n", sk->prot->rspace(sk),
-                          left);
+    if (sk->debug)
+        printk("sk->rspace = %lu, was %lu\n", sk->prot->rspace(sk), left);
+
     if ((rspace = sk->prot->rspace(sk)) != left) { // 有更多空间了
         /*
          * This area has caused the most trouble.  The current strategy
@@ -1957,18 +1969,18 @@ static void cleanup_rbuf(struct sock *sk)
          * the user reads some more.
          */
         sk->ack_backlog++;
-    /*
-     * It's unclear whether to use sk->mtu or sk->mss here.  They differ only
-     * if the other end is offering a window smaller than the agreed on MSS
-     * (called sk->mtu here).  In theory there's no connection between send
-     * and receive, and so no reason to think that they're going to send
-     * small packets.  For the moment I'm using the hack of reducing the mss
-     * only on the send side, so I'm putting mtu here.
-     */
 
+        /*
+         * It's unclear whether to use sk->mtu or sk->mss here.  They differ only
+         * if the other end is offering a window smaller than the agreed on MSS
+         * (called sk->mtu here).  In theory there's no connection between send
+         * and receive, and so no reason to think that they're going to send
+         * small packets.  For the moment I'm using the hack of reducing the mss
+         * only on the send side, so I'm putting mtu here.
+         */
         if (rspace > (sk->window - sk->bytes_rcv + sk->mtu)) {
             /* Send an ack right now. */
-            tcp_read_wakeup(sk);
+            tcp_read_wakeup(sk); // 告诉对端窗口已经有足够的空间, 可以发送数据
         }
         else
         {
@@ -2045,7 +2057,7 @@ static int tcp_read_urg(struct sock * sk, int nonblock,
 /*
  *    This routine copies from a sock struct into the user buffer.
  */
-
+// 对应 read() 系统调用的底层实现
 static int tcp_read(struct sock *sk, unsigned char *to,
                     int len, int nonblock, unsigned flags)
 {
@@ -2077,11 +2089,14 @@ static int tcp_read(struct sock *sk, unsigned char *to,
 
     peek_seq = sk->copied_seq; // 已经被应用层读取的数据序列
     seq = &sk->copied_seq;
+
     if (flags & MSG_PEEK) // 如果只是窥看模式(就是不会把socket的缓存删除)
         seq = &peek_seq;
 
     add_wait_queue(sk->sleep, &wait); // 添加到等待队列中
+
     sk->inuse = 1;
+
     while (len > 0) {
         struct sk_buff * skb;
         unsigned long offset;
@@ -2103,16 +2118,24 @@ static int tcp_read(struct sock *sk, unsigned char *to,
         do {
             if (!skb)
                 break;
-            // seq < skb->h.th->seq
+
+            // 如果 seq < skb->h.th->seq, 不能跨数据读取
             if (before(*seq, skb->h.th->seq))
                 break;
 
+            /*
+             *    th->seq     *seq
+             *       +----------+--------------+
+             *       |          |              |
+             *       +----------+--------------+
+             *       \_ offset _/
+             */
             offset = *seq - skb->h.th->seq; // 重复数据偏移量
 
             if (skb->h.th->syn)
                 offset--;
 
-            if (offset < skb->len)
+            if (offset < skb->len) // offset在数据包内
                 goto found_ok_skb;
 
             if (skb->h.th->fin)
@@ -2215,7 +2238,9 @@ static int tcp_read(struct sock *sk, unsigned char *to,
          *    a crash when cleanup_rbuf() gets called.
          */
 
-        memcpy_tofs(to,((unsigned char *)skb->h.th) + skb->h.th->doff*4 + offset, used);
+        memcpy_tofs(to,
+            ((unsigned char *)skb->h.th) + skb->h.th->doff * 4 + offset, used);
+
         copied += used;
         len -= used;
         to += used;
@@ -2228,7 +2253,7 @@ static int tcp_read(struct sock *sk, unsigned char *to,
 
         skb->users--;
 
-        if (after(sk->copied_seq,sk->urg_seq))
+        if (after(sk->copied_seq, sk->urg_seq))
             sk->urg_data = 0;
         if (used + offset < skb->len)
             continue;
@@ -2276,32 +2301,31 @@ static int tcp_read(struct sock *sk, unsigned char *to,
 // 调用close()函数时触发
 static int tcp_close_state(struct sock *sk, int dead)
 {
-    int ns=TCP_CLOSE;
-    int send_fin=0;
+    int ns = TCP_CLOSE;
+    int send_fin = 0;  // 是否需要发送FIN包
 
     switch(sk->state) {
     case TCP_SYN_SENT:    /* No SYN back, no FIN needed */
         break;
     case TCP_SYN_RECV:
     case TCP_ESTABLISHED:    /* Closedown begin */
-        ns=TCP_FIN_WAIT1;
-        send_fin=1;
+        ns = TCP_FIN_WAIT1;
+        send_fin = 1;
         break;
     case TCP_FIN_WAIT1:    /* Already closing, or FIN sent: no change */
     case TCP_FIN_WAIT2:
     case TCP_CLOSING:
-        ns=sk->state;
+        ns = sk->state;
         break;
     case TCP_CLOSE:
     case TCP_LISTEN:
         break;
-    case TCP_CLOSE_WAIT:    /* They have FIN'd us. We send our FIN and
-                   wait only for the ACK */
-        ns=TCP_LAST_ACK;
-        send_fin=1;
+    case TCP_CLOSE_WAIT:    /* They have FIN'd us. We send our FIN and wait only for the ACK */
+        ns = TCP_LAST_ACK;
+        send_fin = 1;
     }
 
-    tcp_set_state(sk,ns);
+    tcp_set_state(sk, ns);
 
     /*
      *    This is a (useful) BSD violating of the RFC. There is a
@@ -2312,9 +2336,9 @@ static int tcp_close_state(struct sock *sk, int dead)
      *    that we won't make the old 4*rto = almost no time - whoops
      *    reset mistake.
      */
-    if (dead && ns == TCP_FIN_WAIT2) {
-        int timer_active=del_timer(&sk->timer);
-        if(timer_active)
+    if (dead && ns == TCP_FIN_WAIT2) { // TCP_FIN_WAIT2状态需要设置TIME_CLOSE定时器
+        int timer_active = del_timer(&sk->timer);
+        if (timer_active)
             add_timer(&sk->timer);
         else
             reset_msl_timer(sk, TIME_CLOSE, TCP_FIN_TIMEOUT);
@@ -2329,11 +2353,11 @@ static int tcp_close_state(struct sock *sk, int dead)
 
 static void tcp_send_fin(struct sock *sk)
 {
-    struct proto *prot =(struct proto *)sk->prot;
-    struct tcphdr *th =(struct tcphdr *)&sk->dummy_th;
+    struct proto *prot = (struct proto *)sk->prot;
+    struct tcphdr *th = (struct tcphdr *)&sk->dummy_th;
     struct tcphdr *t1;
     struct sk_buff *buff;
-    struct device *dev=NULL;
+    struct device *dev = NULL;
     int tmp;
 
     release_sock(sk); /* in case the malloc sleeps. */
@@ -2354,17 +2378,16 @@ static void tcp_send_fin(struct sock *sk)
     buff->sk = sk;
     buff->len = sizeof(*t1);
     buff->localroute = sk->localroute;
-    t1 =(struct tcphdr *) buff->data;
+    t1 = (struct tcphdr *) buff->data;
 
     /*
      *    Put in the IP header and routing stuff.
      */
-
+    // 构建IP头部和MAC头部
     tmp = prot->build_header(buff,sk->saddr, sk->daddr,
                              &dev, IPPROTO_TCP, sk->opt,
                              sizeof(struct tcphdr), sk->ip_tos,
                              sk->ip_ttl);
-
     if (tmp < 0) {
         int t;
           /*
@@ -2388,7 +2411,7 @@ static void tcp_send_fin(struct sock *sk)
      *    if so simply add the fin to that buffer, not send it ahead.
      */
 
-    t1 =(struct tcphdr *)((char *)t1 +tmp);
+    t1 = (struct tcphdr *)((char *)t1 +tmp);
     buff->len += tmp;
     buff->dev = dev;
     memcpy(t1, th, sizeof(*t1));
@@ -2410,6 +2433,7 @@ static void tcp_send_fin(struct sock *sk)
 
     if (skb_peek(&sk->write_queue) != NULL) {
         buff->free = 0;
+
         if (buff->next != NULL) {
             printk("tcp_send_fin: next != NULL\n");
             skb_unlink(buff);
@@ -2429,7 +2453,7 @@ static void tcp_send_fin(struct sock *sk)
  *    Shutdown the sending side of a connection. Much like close except
  *    that we don't receive shut down or set sk->dead=1.
  */
-
+// 关闭socket
 void tcp_shutdown(struct sock *sk, int how)
 {
     /*
@@ -2445,17 +2469,17 @@ void tcp_shutdown(struct sock *sk, int how)
      *    If we've already sent a FIN, or it's a closed state
      */
 
-    if (sk->state == TCP_FIN_WAIT1 ||
-        sk->state == TCP_FIN_WAIT2 ||
-        sk->state == TCP_CLOSING   ||
-        sk->state == TCP_LAST_ACK  ||
-        sk->state == TCP_TIME_WAIT ||
-        sk->state == TCP_CLOSE     ||
-        sk->state == TCP_LISTEN
-    )
+    if (sk->state == TCP_FIN_WAIT1
+        || sk->state == TCP_FIN_WAIT2
+        || sk->state == TCP_CLOSING
+        || sk->state == TCP_LAST_ACK
+        || sk->state == TCP_TIME_WAIT
+        || sk->state == TCP_CLOSE
+        || sk->state == TCP_LISTEN)
     {
         return;
     }
+
     sk->inuse = 1;
 
     /*
@@ -2467,7 +2491,7 @@ void tcp_shutdown(struct sock *sk, int how)
     /*
      *  Clear out any half completed packets.
      */
-
+    // 把partial队列的数据发送出去
     if (sk->partial)
         tcp_send_partial(sk);
 
@@ -2475,8 +2499,8 @@ void tcp_shutdown(struct sock *sk, int how)
      *    FIN if needed
      */
 
-    if (tcp_close_state(sk,0))
-        tcp_send_fin(sk);
+    if (tcp_close_state(sk, 0)) // 更改socket的状态
+        tcp_send_fin(sk);       // 如果需要发送FIN包给对端
 
     release_sock(sk);
 }
@@ -2508,7 +2532,7 @@ tcp_recvfrom(struct sock *sk, unsigned char *to,
         addr->sin_addr.s_addr = sk->daddr;
     }
 
-    return(result);
+    return result;
 }
 
 
@@ -2575,19 +2599,19 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr,
     t1->rst = 1;
     t1->window = 0;
 
-    if(th->ack) {
+    if (th->ack) {
         t1->ack = 0;
         t1->seq = th->ack_seq;
         t1->ack_seq = 0;
     }
     else
     {
-          t1->ack = 1;
-          if (!th->syn)
-              t1->ack_seq = htonl(th->seq);
-          else
-              t1->ack_seq = htonl(th->seq+1);
-          t1->seq=0;
+        t1->ack = 1;
+        if (!th->syn)
+            t1->ack_seq = htonl(th->seq);
+        else
+            t1->ack_seq = htonl(th->seq+1);
+        t1->seq = 0;
     }
 
     t1->syn = 0;
@@ -2595,8 +2619,11 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr,
     t1->fin = 0;
     t1->psh = 0;
     t1->doff = sizeof(*t1)/4;
+
     tcp_send_check(t1, saddr, daddr, sizeof(*t1), NULL);
+
     prot->queue_xmit(NULL, ndev, buff, 1);
+
     tcp_statistics.TcpOutSegs++;
 }
 
@@ -2626,36 +2653,36 @@ static void tcp_options(struct sock *sk, struct tcphdr *th)
         int opsize=*ptr++;
         switch(opcode)
         {
-            case TCPOPT_EOL:
-                return;
-            case TCPOPT_NOP:    /* Ref: RFC 793 section 3.1 */
-                length--;
-                ptr--;        /* the opsize=*ptr++ above was a mistake */
-                continue;
+        case TCPOPT_EOL:
+            return;
 
-            default:
-                if(opsize<=2)    /* Avoid silly options looping forever */
-                    return;
-                switch(opcode)
-                {
-                    case TCPOPT_MSS:
-                        if(opsize==4 && th->syn)
-                        {
-                            sk->mtu=min(sk->mtu,ntohs(*(unsigned short *)ptr));
-                            mss_seen = 1;
-                        }
-                        break;
-                        /* Add other options here as people feel the urge to implement stuff like large windows */
-                }
-                ptr+=opsize-2;
-                length-=opsize;
+        case TCPOPT_NOP:    /* Ref: RFC 793 section 3.1 */
+            length--;
+            ptr--;        /* the opsize=*ptr++ above was a mistake */
+            continue;
+
+        default:
+            if (opsize <= 2)    /* Avoid silly options looping forever */
+                return;
+            switch(opcode) {
+                case TCPOPT_MSS:
+                    if(opsize == 4 && th->syn) {
+                        sk->mtu = min(sk->mtu,ntohs(*(unsigned short *)ptr));
+                        mss_seen = 1;
+                    }
+                    break;
+                    /* Add other options here as people feel the urge to implement stuff like large windows */
+            }
+            ptr += opsize-2;
+            length -= opsize;
         }
     }
-    if (th->syn)
-    {
-        if (! mss_seen)
-              sk->mtu=min(sk->mtu, 536);  /* default MSS if none sent */
+
+    if (th->syn) {
+        if (!mss_seen)
+            sk->mtu = min(sk->mtu, 536);  /* default MSS if none sent */
     }
+
 #ifdef CONFIG_INET_PCTCP
     sk->mss = min(sk->max_window >> 1, sk->mtu);
 #else
@@ -3168,14 +3195,14 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
           sk->retransmits = 0;
 
     /*
-     *    If the ack is newer than sent or older than previous acks
-     *    then we can probably ignore it.
+     * If the ack is newer than sent or older than previous acks
+     * then we can probably ignore it.
      */
     // 1. ack > sent_seq: 如果收到的确认ack大于发送出去的序列(错误ack包)
     // 2. ack < rcv_ack_seq: 如果收到的确认ack小于之前收到的确认序列(忽略)
     if (after(ack, sk->sent_seq) || before(ack, sk->rcv_ack_seq)) {
-        if(sk->debug)
-            printk("Ack ignored %lu %lu\n",ack,sk->sent_seq);
+        if (sk->debug)
+            printk("Ack ignored %lu %lu\n", ack, sk->sent_seq);
 
         /*
          *    Keepalive processing.
@@ -3191,6 +3218,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
             if (sk->ip_xmit_timeout == TIME_KEEPOPEN)
                 reset_xmit_timer(sk, TIME_KEEPOPEN, TCP_TIMEOUT_LEN);
         }
+
         return(1);
     }
 
@@ -3209,7 +3237,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      */
     // window_seq是还没确认的序列
     // window_seq > window + ack (表示窗口缩小了)
-    if (after(sk->window_seq, ack+ntohs(th->window))) {
+    if (after(sk->window_seq, ack + ntohs(th->window))) {
         /*
          * We may need to move packets from the send queue
          * to the write queue, if the window has been shrunk on us.
@@ -3332,8 +3360,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    it needs to be for normal retransmission.
      */
 
-    if (sk->ip_xmit_timeout == TIME_PROBE0)
-    {
+    if (sk->ip_xmit_timeout == TIME_PROBE0) {
         sk->retransmits = 0;    /* Our probe was answered */
 
         /*
@@ -3419,10 +3446,10 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
              */
             if (!sk->dead)
                 sk->write_space(sk);
+
             oskb = sk->send_head;
 
-            if (!(flag&2))     /* Not retransmitting */
-            {
+            if (!(flag&2)) {    /* Not retransmitting */
                 long m;
 
                 /*
@@ -3434,7 +3461,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
                  */
 
                 m = jiffies - oskb->when;  /* RTT */
-                if(m<=0)
+                if (m <= 0)
                     m=1;        /* IS THIS RIGHT FOR <0 ??? */
                 m -= (sk->rtt >> 3);    /* m is now error in rtt est */
                 sk->rtt += m;           /* rtt = 7/8 rtt + 1/8 new */
@@ -3454,11 +3481,14 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
                     sk->rto = 20;
                 sk->backoff = 0;
             }
+
             flag |= (2|4);    /* 2 is really more like 'don't adjust the rtt
-                               In this case as we just set it up */
+                                 In this case as we just set it up */
             cli();
+
             oskb = sk->send_head;
             IS_SKB(oskb);
+
             sk->send_head = oskb->link3;
             if (sk->send_head == NULL) {
                 sk->send_tail = NULL;
@@ -3470,6 +3500,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
 
             if (oskb->next)
                 skb_unlink(oskb);
+
             sti();
             kfree_skb(oskb, FREE_WRITE); /* write. */
             if (!sk->dead)
@@ -3494,8 +3525,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      * Maybe we can take some stuff off of the write queue,
      * and put it onto the xmit queue.
      */
-    if (skb_peek(&sk->write_queue) != NULL)
-    {
+    if (skb_peek(&sk->write_queue) != NULL) {
         if (after(sk->window_seq+1, sk->write_queue.next->h.seq)
             && (sk->retransmits == 0
                 || sk->ip_xmit_timeout != TIME_WRITE
@@ -3589,15 +3619,15 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      * Move to TCP_CLOSE on success.
      */
 
-    if (sk->state == TCP_LAST_ACK)
-    {
+    if (sk->state == TCP_LAST_ACK) {
         if (!sk->dead)
             sk->state_change(sk);
+
         if(sk->debug)
             printk("rcv_ack_seq: %lX==%lX, acked_seq: %lX==%lX\n",
-                sk->rcv_ack_seq,sk->write_seq,sk->acked_seq,sk->fin_seq);
-        if (sk->rcv_ack_seq == sk->write_seq /*&& sk->acked_seq == sk->fin_seq*/)
-        {
+                   sk->rcv_ack_seq,sk->write_seq,sk->acked_seq,sk->fin_seq);
+
+        if (sk->rcv_ack_seq == sk->write_seq) {
             flag |= 1;
             tcp_set_state(sk,TCP_CLOSE);
             sk->shutdown = SHUTDOWN_MASK;
@@ -3611,12 +3641,11 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    SEND_SHUTDOWN but not RCV_SHUTDOWN as data can still be coming in.
      */
 
-    if (sk->state == TCP_FIN_WAIT1)
-    {
+    if (sk->state == TCP_FIN_WAIT1) {
         if (!sk->dead)
             sk->state_change(sk);
-        if (sk->rcv_ack_seq == sk->write_seq)
-        {
+
+        if (sk->rcv_ack_seq == sk->write_seq) {
             flag |= 1;
             sk->shutdown |= SEND_SHUTDOWN;
             tcp_set_state(sk, TCP_FIN_WAIT2);
@@ -3629,13 +3658,11 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    Move to TIME_WAIT
      */
 
-    if (sk->state == TCP_CLOSING)
-    {
-
+    if (sk->state == TCP_CLOSING) {
         if (!sk->dead)
             sk->state_change(sk);
-        if (sk->rcv_ack_seq == sk->write_seq)
-        {
+
+        if (sk->rcv_ack_seq == sk->write_seq) {
             flag |= 1;
             tcp_time_wait(sk);
         }
@@ -3645,17 +3672,18 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    Final ack of a three way shake
      */
 
-    if(sk->state==TCP_SYN_RECV)
-    {
+    if (sk->state==TCP_SYN_RECV) {
         tcp_set_state(sk, TCP_ESTABLISHED);
         tcp_options(sk,th);
+
         sk->dummy_th.dest=th->source;
         sk->copied_seq = sk->acked_seq;
+
         if(!sk->dead)
             sk->state_change(sk);
-        if(sk->max_window==0)
-        {
-            sk->max_window=32;    /* Sanity check */
+
+        if (sk->max_window == 0) {
+            sk->max_window = 32;    /* Sanity check */
             sk->mss=min(sk->max_window,sk->mtu);
         }
     }
@@ -3689,7 +3717,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      * As long as no further losses occur, this seems reasonable.
      */
 
-    if (((!flag) || (flag&4))
+    if (((!flag) || (flag & 4))
         && sk->send_head != NULL
         && (((flag&2) && sk->retransmits)
         || (sk->send_head->when + sk->rto < jiffies)))
@@ -3727,76 +3755,79 @@ static int tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
 {
     sk->fin_seq = th->seq + skb->len + th->syn + th->fin;
 
-    if (!sk->dead)
-    {
+    if (!sk->dead) {
         sk->state_change(sk);
         sock_wake_async(sk->socket, 1);
     }
 
-    switch(sk->state)
-    {
-        case TCP_SYN_RECV:
-        case TCP_SYN_SENT:
-        case TCP_ESTABLISHED:
-            /*
-             * move to CLOSE_WAIT, tcp_data() already handled
-             * sending the ack.
-             */
-            tcp_set_state(sk,TCP_CLOSE_WAIT);
-            if (th->rst)
-                sk->shutdown = SHUTDOWN_MASK;
-            break;
+    switch(sk->state) {
+    case TCP_SYN_RECV:
+    case TCP_SYN_SENT:
+    case TCP_ESTABLISHED:
+        /*
+         * move to CLOSE_WAIT, tcp_data() already handled
+         * sending the ack.
+         */
+        tcp_set_state(sk,TCP_CLOSE_WAIT);
+        if (th->rst)
+            sk->shutdown = SHUTDOWN_MASK;
+        break;
 
-        case TCP_CLOSE_WAIT:
-        case TCP_CLOSING:
-            /*
-             * received a retransmission of the FIN, do
-             * nothing.
-             */
-            break;
-        case TCP_TIME_WAIT:
-            /*
-             * received a retransmission of the FIN,
-             * restart the TIME_WAIT timer.
-             */
-            reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
-            return(0);
-        case TCP_FIN_WAIT1:
-            /*
-             * This case occurs when a simultaneous close
-             * happens, we must ack the received FIN and
-             * enter the CLOSING state.
-             *
-             * This causes a WRITE timeout, which will either
-             * move on to TIME_WAIT when we timeout, or resend
-             * the FIN properly (maybe we get rid of that annoying
-             * FIN lost hang). The TIME_WRITE code is already correct
-             * for handling this timeout.
-             */
+    case TCP_CLOSE_WAIT:
+    case TCP_CLOSING:
+        /*
+         * received a retransmission of the FIN, do
+         * nothing.
+         */
+        break;
 
-            if(sk->ip_xmit_timeout != TIME_WRITE)
-                reset_xmit_timer(sk, TIME_WRITE, sk->rto);
-            tcp_set_state(sk,TCP_CLOSING);
-            break;
-        case TCP_FIN_WAIT2:
-            /*
-             * received a FIN -- send ACK and enter TIME_WAIT
-             */
-            reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
-            sk->shutdown|=SHUTDOWN_MASK;
-            tcp_set_state(sk,TCP_TIME_WAIT);
-            break;
-        case TCP_CLOSE:
-            /*
-             * already in CLOSE
-             */
-            break;
-        default:
-            tcp_set_state(sk,TCP_LAST_ACK);
+    case TCP_TIME_WAIT:
+        /*
+         * received a retransmission of the FIN,
+         * restart the TIME_WAIT timer.
+         */
+        reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
+        return(0);
 
-            /* Start the timers. */
-            reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
-            return(0);
+    case TCP_FIN_WAIT1:
+        /*
+         * This case occurs when a simultaneous close
+         * happens, we must ack the received FIN and
+         * enter the CLOSING state.
+         *
+         * This causes a WRITE timeout, which will either
+         * move on to TIME_WAIT when we timeout, or resend
+         * the FIN properly (maybe we get rid of that annoying
+         * FIN lost hang). The TIME_WRITE code is already correct
+         * for handling this timeout.
+         */
+
+        if(sk->ip_xmit_timeout != TIME_WRITE)
+            reset_xmit_timer(sk, TIME_WRITE, sk->rto);
+        tcp_set_state(sk,TCP_CLOSING);
+        break;
+
+    case TCP_FIN_WAIT2:
+        /*
+         * received a FIN -- send ACK and enter TIME_WAIT
+         */
+        reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
+        sk->shutdown|=SHUTDOWN_MASK;
+        tcp_set_state(sk,TCP_TIME_WAIT);
+        break;
+
+    case TCP_CLOSE:
+        /*
+         * already in CLOSE
+         */
+        break;
+
+    default:
+        tcp_set_state(sk,TCP_LAST_ACK);
+
+        /* Start the timers. */
+        reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
+        return(0);
     }
 
     return(0);
@@ -3831,11 +3862,11 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
 
     if (skb->len == 0 && !th->fin) {
         /*
-         *    Don't want to keep passing ack's back and forth.
-         *    (someone sent us dataless, boring frame)
+         * Don't want to keep passing ack's back and forth.
+         * (someone sent us dataless, boring frame)
          */
         if (!th->ack)
-            tcp_send_ack(sk->sent_seq, sk->acked_seq,sk, th, saddr);
+            tcp_send_ack(sk->sent_seq, sk->acked_seq, sk, th, saddr);
         kfree_skb(skb, FREE_READ);
         return(0);
     }
@@ -3846,16 +3877,15 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
 
 #ifndef TCP_DONT_RST_SHUTDOWN
 
-    if(sk->shutdown & RCV_SHUTDOWN) {
+    if (sk->shutdown & RCV_SHUTDOWN) {
         /*
          *    FIXME: BSD has some magic to avoid sending resets to
          *    broken 4.2 BSD keepalives. Much to my surprise a few non
          *    BSD stacks still have broken keepalives so we want to
          *    cope with it.
          */
-
-        if(skb->len) { /* We don't care if it's just an ack or a keepalive/window probe */
-            new_seq= th->seq + skb->len + th->syn;    /* Right edge of _data_ part of frame */
+        if (skb->len) { /* We don't care if it's just an ack or a keepalive/window probe */
+            new_seq = th->seq + skb->len + th->syn;    /* Right edge of _data_ part of frame */
 
             /* Do this the way 4.4BSD treats it. Not what I'd
                regard as the meaning of the spec but it's what BSD
@@ -3868,9 +3898,9 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
              *    b) A fin takes effect when read not when received.
              */
 
-            shut_seq=sk->acked_seq+1;    /* Last byte */
+            shut_seq = sk->acked_seq + 1;    /* Last byte */
 
-            if(after(new_seq,shut_seq)) {
+            if (after(new_seq, shut_seq)) {
                 if (sk->debug)
                     printk("Data arrived on %p after close [Data right edge %lX, Socket shut on %lX] %d\n",
                            sk, new_seq, shut_seq, sk->blog);
@@ -3964,8 +3994,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
      if (th->syn) th->ack_seq++;
      if (th->fin) th->ack_seq++;
 
-    if (before(sk->acked_seq, sk->copied_seq))
-    {
+    if (before(sk->acked_seq, sk->copied_seq)) {
         printk("*** tcp.c:tcp_data bug acked < copied\n");
         sk->acked_seq = sk->copied_seq;
     }
@@ -3976,15 +4005,13 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
      *    queue.
      */
 
-    if ((!dup_dumped && (skb1 == NULL || skb1->acked)) ||
-        before(th->seq, sk->acked_seq+1))
+    if ((!dup_dumped && (skb1 == NULL || skb1->acked))
+        || before(th->seq, sk->acked_seq+1))
     {
-        if (before(th->seq, sk->acked_seq+1))
-        {
+        if (before(th->seq, sk->acked_seq+1)) {
             int newwindow;
 
-            if (after(th->ack_seq, sk->acked_seq))
-            {
+            if (after(th->ack_seq, sk->acked_seq)) {
                 newwindow = sk->window-(th->ack_seq - sk->acked_seq);
                 if (newwindow < 0)
                     newwindow = 0;
@@ -3997,9 +4024,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
              *    When we ack the fin, we do the FIN
              *    processing.
              */
-
-            if (skb->h.th->fin)
-            {
+            if (skb->h.th->fin) {
                 tcp_fin(skb,sk,skb->h.th);
             }
 
@@ -4007,10 +4032,8 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
                 skb2 != (struct sk_buff *)&sk->receive_queue;
                 skb2 = skb2->next)
             {
-                if (before(skb2->h.th->seq, sk->acked_seq+1))
-                {
-                    if (after(skb2->h.th->ack_seq, sk->acked_seq))
-                    {
+                if (before(skb2->h.th->seq, sk->acked_seq+1)) {
+                    if (after(skb2->h.th->ack_seq, sk->acked_seq)) {
                         newwindow = sk->window -
                          (skb2->h.th->ack_seq - sk->acked_seq);
                         if (newwindow < 0)
@@ -4023,15 +4046,13 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
                      *     When we ack the fin, we do
                      *     the fin handling.
                      */
-                    if (skb2->h.th->fin)
-                    {
+                    if (skb2->h.th->fin) {
                         tcp_fin(skb,sk,skb->h.th);
                     }
 
                     /*
                      *    Force an immediate ack.
                      */
-
                     sk->ack_backlog = sk->max_ack_backlog;
                 }
                 else
@@ -4044,9 +4065,9 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
              *    This also takes care of updating the window.
              *    This if statement needs to be simplified.
              */
-            if (!sk->delay_acks ||
-                sk->ack_backlog >= sk->max_ack_backlog ||
-                sk->bytes_rcv > sk->max_unacked || th->fin) {
+            if (!sk->delay_acks
+                || sk->ack_backlog >= sk->max_ack_backlog
+                || sk->bytes_rcv > sk->max_unacked || th->fin) {
                 /* tcp_send_ack(sk->sent_seq, sk->acked_seq,sk,th, saddr); */
             }
             else
@@ -4109,6 +4130,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
             printk("Data wakeup.\n");
         sk->data_ready(sk,0);
     }
+
     return(0);
 }
 
@@ -4127,6 +4149,7 @@ static void tcp_check_urg(struct sock * sk, struct tcphdr * th)
 
     if (ptr)
         ptr--;
+
     ptr += th->seq;
 
     /* ignore urgent data that we've already seen and read */
@@ -4145,6 +4168,7 @@ static void tcp_check_urg(struct sock * sk, struct tcphdr * th)
             kill_pg(-sk->proc, SIGURG, 1);
         }
     }
+
     sk->urg_data = URG_NOTYET;
     sk->urg_seq = ptr;
 }
@@ -4163,7 +4187,7 @@ extern __inline__ int tcp_urg(struct sock *sk, struct tcphdr *th,
      */
 
     if (th->urg)
-        tcp_check_urg(sk,th);
+        tcp_check_urg(sk, th);
 
     /*
      *    Do we wait for any urgent data? - normally not
@@ -4184,7 +4208,7 @@ extern __inline__ int tcp_urg(struct sock *sk, struct tcphdr *th,
      *    Ok, got the correct packet, update info
      */
 
-    sk->urg_data = URG_VALID | *(ptr + (unsigned char *) th);
+    sk->urg_data = URG_VALID | *(ptr + (unsigned char *)th);
     if (!sk->dead)
         sk->data_ready(sk,0);
     return 0;
@@ -4699,12 +4723,12 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
             /* Crossed SYN or previous junk segment */
             if (th->ack) {
                 /* We got an ack, but it's not a good ack */
-                if (!tcp_ack(sk,th,saddr,len)) {
+                if (!tcp_ack(sk, th, saddr,len)) { // 如果是一个不合法的ack
                     /* Reset the ack - its an ack from a
                        different connection  [ th->rst is checked in tcp_reset()] */
                     tcp_statistics.TcpAttemptFails++;
-                    tcp_reset(daddr, saddr, th,
-                        sk->prot, opt,dev,sk->ip_tos,sk->ip_ttl);
+                    tcp_reset(daddr, saddr, th, sk->prot,
+                              opt, dev, sk->ip_tos, sk->ip_ttl); // 发送一个reset包给对端
                     kfree_skb(skb, FREE_READ);
                     release_sock(sk);
                     return(0);
@@ -4725,7 +4749,7 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
                  *    move to established.
                  */
                 syn_ok = 1;    /* Don't reset this connection for the syn */
-                sk->acked_seq = th->seq+1;
+                sk->acked_seq = th->seq + 1;
                 sk->fin_seq = th->seq;
                 tcp_send_ack(sk->sent_seq,sk->acked_seq,sk,th,sk->daddr);
                 tcp_set_state(sk, TCP_ESTABLISHED);
@@ -4776,33 +4800,38 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
             goto rfc_step6;
         }
 
-    /*
-     *    BSD has a funny hack with TIME_WAIT and fast reuse of a port. There is
-     *    a more complex suggestion for fixing these reuse issues in RFC1644
-     *    but not yet ready for general use. Also see RFC1379.
-     */
+        /*
+         *    BSD has a funny hack with TIME_WAIT and fast reuse of a port. There is
+         *    a more complex suggestion for fixing these reuse issues in RFC1644
+         *    but not yet ready for general use. Also see RFC1379.
+         */
 
 #define BSD_TIME_WAIT
 #ifdef BSD_TIME_WAIT
+
         if (sk->state == TCP_TIME_WAIT &&
             th->syn &&
             sk->dead &&
             after(th->seq, sk->acked_seq) &&
             !th->rst)
         {
-            long seq=sk->write_seq;
+            long seq = sk->write_seq;
+
             if(sk->debug)
                 printk("Doing a BSD time wait\n");
+
             tcp_statistics.TcpEstabResets++;
             sk->rmem_alloc -= skb->mem_len;
             skb->sk = NULL;
-            sk->err=ECONNRESET;
+            sk->err = ECONNRESET;
+
             tcp_set_state(sk, TCP_CLOSE);
+
             sk->shutdown = SHUTDOWN_MASK;
             release_sock(sk);
-            sk=get_sock(&tcp_prot, th->dest, saddr, th->source, daddr);
-            if (sk && sk->state==TCP_LISTEN)
-            {
+
+            sk = get_sock(&tcp_prot, th->dest, saddr, th->source, daddr);
+            if (sk && sk->state == TCP_LISTEN) {
                 sk->inuse=1;
                 skb->sk = sk;
                 sk->rmem_alloc += skb->mem_len;
@@ -4810,9 +4839,12 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
                 release_sock(sk);
                 return 0;
             }
+
             kfree_skb(skb, FREE_READ);
+
             return 0;
         }
+
 #endif
     }
 
@@ -4849,9 +4881,9 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
         /*
          *    Our three way handshake failed.
          */
-
-        if (sk->state==TCP_SYN_RECV) {
-            tcp_reset(daddr, saddr, th,sk->prot, opt, dev,sk->ip_tos,sk->ip_ttl);
+        if (sk->state == TCP_SYN_RECV) {
+            tcp_reset(daddr, saddr, th,sk->prot, opt,
+                      dev, sk->ip_tos, sk->ip_ttl);
         }
         kfree_skb(skb, FREE_READ);
         release_sock(sk);
@@ -4876,7 +4908,7 @@ rfc_step6:        /* I'll clean this up later */
      *    Process the encapsulated data
      */
 
-    if (tcp_data(skb,sk, saddr, len)) {
+    if (tcp_data(skb, sk, saddr, len)) {
         kfree_skb(skb, FREE_READ);
         release_sock(sk);
         return 0;
@@ -4911,11 +4943,11 @@ static void tcp_write_wakeup(struct sock *sk)
      *    [listen/close will never occur here anyway]
      */
 
-    if (sk->state != TCP_ESTABLISHED &&
-        sk->state != TCP_CLOSE_WAIT  &&
-        sk->state != TCP_FIN_WAIT1   &&
-        sk->state != TCP_LAST_ACK    &&
-        sk->state != TCP_CLOSING)
+    if (sk->state != TCP_ESTABLISHED
+        && sk->state != TCP_CLOSE_WAIT
+        && sk->state != TCP_FIN_WAIT1
+        && sk->state != TCP_LAST_ACK
+        && sk->state != TCP_CLOSING)
     {
         return;
     }
@@ -4962,13 +4994,16 @@ static void tcp_write_wakeup(struct sock *sk)
     t1->syn  = 0;
     t1->ack_seq = ntohl(sk->acked_seq);
     t1->window = ntohs(tcp_select_window(sk));
-    t1->doff = sizeof(*t1)/4;
+    t1->doff = sizeof(*t1) / 4;
+
     tcp_send_check(t1, sk->saddr, sk->daddr, sizeof(*t1), sk);
-     /*
-      *    Send it and free it.
-         *    This will prevent the timer from automatically being restarted.
-      */
+
+    /*
+     * Send it and free it.
+     * This will prevent the timer from automatically being restarted.
+     */
     sk->prot->queue_xmit(sk, dev, buff, 1); // 把包发送出去
+
     tcp_statistics.TcpOutSegs++;
 }
 
@@ -4998,7 +5033,7 @@ int tcp_setsockopt(struct sock *sk, int level, int optname, char *optval, int op
 {
     int val,err;
 
-    if (level!=SOL_TCP)
+    if (level != SOL_TCP)
         return ip_setsockopt(sk,level,optname,optval,optlen);
 
     if (optval == NULL)

@@ -92,56 +92,56 @@ struct sock {
                   zapped,  /* In ax25 & ipx means not linked */ // 是否被reset
                   broadcast,
                   nonagle;
-  unsigned long    lingertime;
-  int        proc;
-  struct sock      *next;
-  struct sock      *prev; /* Doubly linked chain.. */
-  struct sock      *pair;
-  struct sk_buff    * volatile send_head;
-  struct sk_buff    * volatile send_tail;
+  unsigned long   lingertime;
+  int             proc;
+  struct sock     *next;
+  struct sock     *prev; /* Doubly linked chain.. */
+  struct sock     *pair;
+  struct sk_buff  *volatile send_head;
+  struct sk_buff  *volatile send_tail;
   struct sk_buff_head back_log; // 暂存队列(就是没空处理的数据包队列)
   struct sk_buff      *partial; // 用于优化发送太多小包
   struct timer_list   partial_timer;
   long                retransmits;
   struct sk_buff_head write_queue,   // 要发送给远端的缓存队列
-                    receive_queue; // 接收到远端数据的缓存队列(read/recv系统调用能够读到的数据)
-  struct proto      *prot;
-  struct wait_queue **sleep;
-  unsigned long     daddr;
-  unsigned long     saddr;
-  unsigned short    max_unacked;
-  unsigned short    window; // 本地的传输窗口
-  unsigned short    bytes_rcv;
+                      receive_queue; // 接收到远端数据的缓存队列(read/recv系统调用能够读到的数据)
+  struct proto        *prot;
+  struct wait_queue   **sleep;
+  unsigned long       daddr;
+  unsigned long       saddr;
+  unsigned short      max_unacked;
+  unsigned short      window; // 本地的传输窗口
+  unsigned short      bytes_rcv;
 /* mss is min(mtu, max_window) */
-  unsigned short    mtu;       /* mss negotiated in the syn's */
+  unsigned short      mtu;       /* mss negotiated in the syn's */
   volatile unsigned short  mss;       /* current eff. mss - can change */
   volatile unsigned short  user_mss;  /* mss requested by user in ioctl */
   volatile unsigned short  max_window;
-  unsigned long     window_clamp;
-  unsigned short    num;
+  unsigned long            window_clamp;
+  unsigned short           num;
   volatile unsigned short  cong_window;
   volatile unsigned short  cong_count;
   volatile unsigned short  ssthresh;
   volatile unsigned short  packets_out;
   volatile unsigned short  shutdown;
-  volatile unsigned long  rtt;
-  volatile unsigned long  mdev;
-  volatile unsigned long  rto;
+  volatile unsigned long   rtt;
+  volatile unsigned long   mdev;
+  volatile unsigned long   rto;
 /* currently backoff isn't used, but I'm maintaining it in case
  * we want to go back to a backoff formula that needs it
  */
   volatile unsigned short  backoff;
-  volatile short    err;
-  unsigned char      protocol;
-  volatile unsigned char  state;
-  volatile unsigned char  ack_backlog; // 没应答对端的数量
-  unsigned char      max_ack_backlog;
-  unsigned char      priority;
-  unsigned char      debug;
-  unsigned short    rcvbuf;
-  unsigned short    sndbuf;
-  unsigned short    type;
-  unsigned char      localroute;  /* Route locally only */
+  volatile short           err;
+  unsigned char            protocol;
+  volatile unsigned char   state;
+  volatile unsigned char   ack_backlog; // 没应答对端的数量
+  unsigned char            max_ack_backlog;
+  unsigned char            priority;
+  unsigned char            debug;
+  unsigned short           rcvbuf;
+  unsigned short           sndbuf;
+  unsigned short           type;
+  unsigned char            localroute;  /* Route locally only */
 #ifdef CONFIG_IPX
   ipx_address      ipx_dest_addr;
   ipx_interface      *ipx_intrfc;

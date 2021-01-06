@@ -509,16 +509,23 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size, int nob
 int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 {
 	unsigned long flags;
-	if(sk->rmem_alloc + skb->mem_len >= sk->rcvbuf)
+
+	if (sk->rmem_alloc + skb->mem_len >= sk->rcvbuf)
 		return -ENOMEM;
+
 	save_flags(flags);
 	cli();
+
 	sk->rmem_alloc += skb->mem_len;
 	skb->sk=sk;
+
 	restore_flags(flags);
+
 	skb_queue_tail(&sk->receive_queue, skb);
+
 	if (!sk->dead)
 		sk->data_ready(sk,skb->len);
+
 	return 0;
 }
 
@@ -540,35 +547,36 @@ void release_sock(struct sock *sk)
 
 	save_flags(flags);
 	cli();
-	if (sk->blog)
-	{
+
+	if (sk->blog) {
 		restore_flags(flags);
 		return;
 	}
-	sk->blog=1;
+
+	sk->blog = 1;
 	sk->inuse = 1;
+
 	restore_flags(flags);
+
 #ifdef CONFIG_INET
 	/* See if we have any packets built up. */
-	while((skb = skb_dequeue(&sk->back_log)) != NULL)
-	{
+	while ((skb = skb_dequeue(&sk->back_log)) != NULL) { // 处理back_log队列的skb
 		sk->blog = 1;
 		if (sk->prot->rcv)
-			sk->prot->rcv(skb, skb->dev, sk->opt,
-				 skb->saddr, skb->len, skb->daddr, 1,
-				/* Only used for/by raw sockets. */
-				(struct inet_protocol *)sk->pair);
+			sk->prot->rcv(skb, skb->dev, sk->opt, skb->saddr, skb->len,
+						  /* Only used for/by raw sockets. */
+				          /* redo == 1 */
+						  skb->daddr, 1, (struct inet_protocol *)sk->pair);
 	}
 #endif
+
 	sk->blog = 0;
 	sk->inuse = 0;
+
 #ifdef CONFIG_INET
-	if (sk->dead && sk->state == TCP_CLOSE)
-	{
+	if (sk->dead && sk->state == TCP_CLOSE) {
 		/* Should be about 2 rtt's */
 		reset_timer(sk, TIME_DONE, min(sk->rtt * 2, TCP_DONE_TIME));
 	}
 #endif
 }
-
-

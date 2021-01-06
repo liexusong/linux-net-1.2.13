@@ -201,16 +201,14 @@ static int ip_send(struct sk_buff *skb, unsigned long daddr,
 
     skb->dev = dev;
     skb->arp = 1;
-    if (dev->hard_header)
-    {
+    if (dev->hard_header) {
         /*
          * Build a hardware header. Source address is our mac, destination unknown
          *  (rebuild header will sort this out)
          * eth_header()
          */
         mac = dev->hard_header(skb->data, dev, ETH_P_IP, NULL, NULL, len, skb);
-        if (mac < 0)
-        {
+        if (mac < 0) {
             mac = -mac;
             skb->arp = 0;
             skb->raddr = daddr;    /* next routing address */
@@ -254,18 +252,17 @@ int ip_build_header(
      */
 
 #ifdef CONFIG_INET_MULTICAST
-    if(MULTICAST(daddr) && *dev==NULL && skb->sk && *skb->sk->ip_mc_name)
+    if (MULTICAST(daddr) && *dev==NULL && skb->sk && *skb->sk->ip_mc_name)
         *dev = dev_get(skb->sk->ip_mc_name);
 #endif
 
-    if (*dev == NULL)
-    {
+    if (*dev == NULL) {
+        // 根据目标IP找路由
         if(skb->localroute)
             rt = ip_rt_local(daddr, &optmem, &src);
         else
-            rt = ip_rt_route(daddr, &optmem, &src); // 根据目标IP找路由
-        if (rt == NULL)
-        {
+            rt = ip_rt_route(daddr, &optmem, &src);
+        if (rt == NULL) {
             ip_statistics.IpOutNoRoutes++;
             return(-ENETUNREACH);
         }
@@ -286,7 +283,7 @@ int ip_build_header(
         /*
          *    We still need the address of the first hop.
          */
-        if(skb->localroute)
+        if (skb->localroute)
             rt = ip_rt_local(daddr, &optmem, &src);
         else
             rt = ip_rt_route(daddr, &optmem, &src);
@@ -317,7 +314,7 @@ int ip_build_header(
      */
     tmp = ip_send(skb, raddr, len, *dev, saddr); // 构建MAC头部
     buff += tmp; // 移动到MAC头部后
-    len -= tmp;
+    len  -= tmp;
 
     /*
      *    Book keeping
@@ -336,8 +333,7 @@ int ip_build_header(
      *    If we are using IPPROTO_RAW, then we don't need an IP header, since
      *    one is being supplied to us by the user
      */
-
-    if(type == IPPROTO_RAW)
+    if (type == IPPROTO_RAW)
         return (tmp);
 
     iph = (struct iphdr *)buff; // IP头部
@@ -356,7 +352,7 @@ int ip_build_header(
     build_options(iph, opt);
 #endif
 
-    return(20 + tmp);    /* IP header plus MAC header size */
+    return (20 + tmp);    /* IP header plus MAC header size */
 }
 
 
@@ -1952,7 +1948,7 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
      *    Multicasts are looped back for other local users
      */
 
-    if (MULTICAST(iph->daddr) && !(dev->flags&IFF_LOOPBACK)) {
+    if (MULTICAST(iph->daddr) && !(dev->flags & IFF_LOOPBACK)) {
         if (sk == NULL || sk->ip_mc_loop) {
             if (iph->daddr == IGMP_ALL_HOSTS)
                 ip_loopback(dev,skb);
@@ -1960,11 +1956,11 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
             {
                 struct ip_mc_list *imc = dev->ip_mc_list;
                 while (imc != NULL) {
-                    if (imc->multiaddr==iph->daddr) {
+                    if (imc->multiaddr == iph->daddr) {
                         ip_loopback(dev,skb);
                         break;
                     }
-                    imc=imc->next;
+                    imc = imc->next;
                 }
             }
         }
@@ -1990,14 +1986,11 @@ void ip_queue_xmit(struct sock *sk, struct device *dev,
 
         if (sk != NULL) {
             dev_queue_xmit(skb, dev, sk->priority);
-        }
-        else
-        {
+        } else {
             dev_queue_xmit(skb, dev, SOPRI_NORMAL);
         }
-    }
-    else
-    {
+
+    } else {
         ip_statistics.IpOutDiscards++;
         if (free)
             kfree_skb(skb, FREE_WRITE);
