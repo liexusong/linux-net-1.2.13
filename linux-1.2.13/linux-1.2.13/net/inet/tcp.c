@@ -2553,7 +2553,6 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr,
     /*
      *    Cannot reset a reset (Think about it).
      */
-
     if (th->rst)
         return;
 
@@ -2571,7 +2570,7 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr,
     buff->dev = dev;
     buff->localroute = 0;
 
-    t1 =(struct tcphdr *) buff->data;
+    t1 =(struct tcphdr *)buff->data;
 
     /*
      *    Put in the IP header and routing stuff.
@@ -2596,16 +2595,14 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr,
 
     t1->dest = th->source;
     t1->source = th->dest;
-    t1->rst = 1;
+    t1->rst = 1;             // 设置reset标志位
     t1->window = 0;
 
-    if (th->ack) {
+    if (th->ack) { // 如果对端发来的是一个ack包
         t1->ack = 0;
-        t1->seq = th->ack_seq;
+        t1->seq = th->ack_seq; // 需要设置seq字段
         t1->ack_seq = 0;
-    }
-    else
-    {
+    } else {
         t1->ack = 1;
         if (!th->syn)
             t1->ack_seq = htonl(th->seq);
@@ -2642,17 +2639,16 @@ static void tcp_reset(unsigned long saddr, unsigned long daddr,
 static void tcp_options(struct sock *sk, struct tcphdr *th)
 {
     unsigned char *ptr;
-    int length=(th->doff*4)-sizeof(struct tcphdr);
+    int length = (th->doff*4) - sizeof(struct tcphdr);
     int mss_seen = 0;
 
     ptr = (unsigned char *)(th + 1);
 
-    while(length>0)
-    {
-        int opcode=*ptr++;
-        int opsize=*ptr++;
-        switch(opcode)
-        {
+    while (length > 0) {
+        int opcode = *ptr++;
+        int opsize = *ptr++;
+
+        switch(opcode) {
         case TCPOPT_EOL:
             return;
 
@@ -2666,13 +2662,14 @@ static void tcp_options(struct sock *sk, struct tcphdr *th)
                 return;
             switch(opcode) {
                 case TCPOPT_MSS:
-                    if(opsize == 4 && th->syn) {
-                        sk->mtu = min(sk->mtu,ntohs(*(unsigned short *)ptr));
-                        mss_seen = 1;
-                    }
-                    break;
-                    /* Add other options here as people feel the urge to implement stuff like large windows */
+                if(opsize == 4 && th->syn) {
+                    sk->mtu = min(sk->mtu,ntohs(*(unsigned short *)ptr));
+                    mss_seen = 1;
+                }
+                break;
+                /* Add other options here as people feel the urge to implement stuff like large windows */
             }
+
             ptr += opsize-2;
             length -= opsize;
         }
@@ -2726,20 +2723,20 @@ extern inline unsigned long tcp_init_seq(void)
 
 static void
 tcp_conn_request(
-    struct sock *sk,
-    struct sk_buff *skb,
-    unsigned long daddr,
-    unsigned long saddr,
-    struct options *opt,
-    struct device *dev,
-    unsigned long seq   // 新建socket的序列号
+    struct sock    *sk,   // 监听的socket
+    struct sk_buff *skb,  // SYN数据包
+    unsigned long  daddr, // 本地IP
+    unsigned long  saddr, // 远端IP
+    struct options *opt,  // IP选项
+    struct device  *dev,  // 接收的设备对象
+    unsigned long  seq    // 新建socket的序列号
 ) {
     struct sk_buff *buff;
     struct tcphdr *t1;
     unsigned char *ptr;
     struct sock *newsk;
     struct tcphdr *th;
-    struct device *ndev=NULL;
+    struct device *ndev = NULL;
     int tmp;
     struct rtable *rt;
 
@@ -2749,9 +2746,9 @@ tcp_conn_request(
     if (!sk->dead) {
         sk->data_ready(sk, 0); // 通知监听当前socket的队列
     } else {
-        if(sk->debug)
-            printk("Reset on %p: Connect on dead socket.\n",sk);
-        tcp_reset(daddr, saddr, th, sk->prot, opt, dev, sk->ip_tos,sk->ip_ttl);
+        if (sk->debug)
+            printk("Reset on %p: Connect on dead socket.\n", sk);
+        tcp_reset(daddr, saddr, th, sk->prot, opt, dev, sk->ip_tos, sk->ip_ttl);
         tcp_statistics.TcpAttemptFails++;
         kfree_skb(skb, FREE_READ);
         return;
@@ -2762,8 +2759,7 @@ tcp_conn_request(
      * flurry of syns from eating up all our memory.
      */
 
-    if (sk->ack_backlog >= sk->max_ack_backlog) // ack队列是否超出限制
-    {
+    if (sk->ack_backlog >= sk->max_ack_backlog) { // ack队列是否超出限制
         tcp_statistics.TcpAttemptFails++;
         kfree_skb(skb, FREE_READ);
         return;
@@ -2785,7 +2781,9 @@ tcp_conn_request(
         return;
     }
 
-    memcpy(newsk, sk, sizeof(*newsk)); // 把 listen socket 复制到新的 socket
+    memcpy(newsk, sk, sizeof(*newsk)); // 把监听socket的内容复制到新的socket
+
+    // 初始化新socket的各个字段
     skb_queue_head_init(&newsk->write_queue);
     skb_queue_head_init(&newsk->receive_queue);
     newsk->send_head = NULL;
@@ -2808,9 +2806,7 @@ tcp_conn_request(
     newsk->wmem_alloc = 0;
     newsk->rmem_alloc = 0;
     newsk->localroute = sk->localroute;
-
     newsk->max_unacked = MAX_WINDOW - TCP_WINDOW_DIFF;
-
     newsk->err = 0;
     newsk->shutdown = 0;
     newsk->ack_backlog = 0;
