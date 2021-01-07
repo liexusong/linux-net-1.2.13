@@ -315,13 +315,10 @@ int sock_getsockopt(struct sock *sk, int level, int optname,
 
 struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force, int priority)
 {
-    if (sk)
-    {
-        if (sk->wmem_alloc + size < sk->sndbuf || force)
-        {
+    if (sk) {
+        if (sk->wmem_alloc + size < sk->sndbuf || force) {
             struct sk_buff *c = alloc_skb(size, priority);
-            if (c)
-            {
+            if (c) {
                 unsigned long flags;
                 save_flags(flags);
                 cli();

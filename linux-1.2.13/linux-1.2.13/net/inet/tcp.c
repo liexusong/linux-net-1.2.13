@@ -3219,19 +3219,19 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
     }
 
     // 如果到这里，表示 ack <= sent_seq && ack > rcv_ack_seq
-    // 表示收到的 ack 不是完全接收到
+    // 表示ack是合法的
 
     /*
      *    If there is data set flag 1
      */
 
     if (len != th->doff * 4)
-        flag |= 1; // 如果有数据
+        flag |= 1; // 如果有负载数据
 
     /*
      *    See if our window has been shrunk.
      */
-    // window_seq是还没确认的序列
+    // window_seq 表示对端窗口最大能容纳的seq
     // window_seq > window + ack (表示窗口缩小了)
     if (after(sk->window_seq, ack + ntohs(th->window))) {
         /*
@@ -3245,7 +3245,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
         struct sk_buff *skb2;
         struct sk_buff *wskb = NULL;
 
-        skb2 = sk->send_head;
+        skb2 = sk->send_head; // 本地未确认的队列
         sk->send_head = NULL;
         sk->send_tail = NULL;
 
@@ -3257,24 +3257,30 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
         flag |= 4;    /* Window changed */
 
         sk->window_seq = ack + ntohs(th->window); // 缩小发送但没确认的序列
+
         cli();
-        while (skb2 != NULL) {
+
+        while (skb2 != NULL) { // 遍历未被确认的队列
             skb = skb2;
             skb2 = skb->link3;
             skb->link3 = NULL;
-            // skb->h.seq > window_seq
+
+            // skb->h.seq > window_seq (如果skb的序列号比对端最大窗口序列大)
             if (after(skb->h.seq, sk->window_seq)) {
                 if (sk->packets_out > 0)
                     sk->packets_out--;
+
                 /* We may need to remove this from the dev send list. */
                 if (skb->next != NULL) {
                     skb_unlink(skb);
                 }
+
                 /* Now add it to the write_queue. */ // 移动到写队列中, 写队列是还没发送出去的数据(将要发送的数据)
                 if (wskb == NULL)
                     skb_queue_head(&sk->write_queue, skb);
                 else
                     skb_append(wskb, skb);
+
                 wskb = skb;
             }
             else  /* skb->h.seq < window_seq */
@@ -3282,20 +3288,20 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
                 if (sk->send_head == NULL) {
                     sk->send_head = skb;
                     sk->send_tail = skb;
-                }
-                else
-                {
+                } else {
                     sk->send_tail->link3 = skb;
                     sk->send_tail = skb;
                 }
+
                 skb->link3 = NULL;
             }
         }
+
         sti();
     }
 
     /*
-     *    Pipe has emptied
+     * Pipe has emptied
      */
     if (sk->send_tail == NULL || sk->send_head == NULL) {
         sk->send_head = NULL;
@@ -3304,16 +3310,17 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
     }
 
     /*
-     *    Update the right hand window edge of the host
+     * Update the right hand window edge of the host
      */
     sk->window_seq = ack + ntohs(th->window);
 
     /*
-     *    We don't want too many packets out there.
+     * We don't want too many packets out there.
      */
-
-    if (sk->ip_xmit_timeout == TIME_WRITE                         // 如果IP层发送超时
-        && sk->cong_window < 2048 && after(ack, sk->rcv_ack_seq)) // ack > rcv_ack_seq
+    // 增加拥塞数据包的数量限制
+    if (sk->ip_xmit_timeout == TIME_WRITE // 如果IP层发送超时
+        && sk->cong_window < 2048
+        && after(ack, sk->rcv_ack_seq))   // 如果ack的序列号大于已经接收到的最大序列号
     {
         /*
          * This is Jacobson's slow start and congestion avoidance.
@@ -3356,7 +3363,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    it needs to be for normal retransmission.
      */
 
-    if (sk->ip_xmit_timeout == TIME_PROBE0) {
+    if (sk->ip_xmit_timeout == TIME_PROBE0) { // 如果当前数据包是应答探测定时器的
         sk->retransmits = 0;    /* Our probe was answered */
 
         /*
@@ -3366,18 +3373,21 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
         if (skb_peek(&sk->write_queue) != NULL &&   /* should always be non-null */
             !before(sk->window_seq, sk->write_queue.next->h.seq)) // window_seq < write_queue.next->h.seq
         {
-            sk->backoff = 0;
+            sk->backoff = 0; // 指数退避算法
 
             /*
-             *    Recompute rto from rtt.  this eliminates any backoff.
+             * Recompute rto from rtt.  this eliminates any backoff.
+             * RTT(Round Trip Time)：一个连接的往返时间
              */
 
-            sk->rto = ((sk->rtt >> 2) + sk->mdev) >> 1;
-            if (sk->rto > 120*HZ)
-                sk->rto = 120*HZ;
-            if (sk->rto < 20)    /* Was 1*HZ, then 1 - turns out we must allow about
-                           .2 of a second because of BSD delayed acks - on a 100Mb/sec link
-                           .2 of a second is going to need huge windows (SIGH) */
+            sk->rto = ((sk->rtt >> 2) + sk->mdev) >> 1; // Retransmission Time Out (重传超时时间)
+            if (sk->rto > 120 * HZ)
+                sk->rto = 120 * HZ;
+
+            /* Was 1*HZ, then 1 - turns out we must allow about
+               .2 of a second because of BSD delayed acks - on a 100Mb/sec link
+               .2 of a second is going to need huge windows (SIGH) */
+            if (sk->rto < 20)
                 sk->rto = 20;
         }
     }
@@ -3388,15 +3398,15 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
 
     while (sk->send_head != NULL) {
         /* Check for a bug. */
-        if (sk->send_head->link3 &&
-            after(sk->send_head->h.seq, sk->send_head->link3->h.seq))
+        if (sk->send_head->link3
+            && after(sk->send_head->h.seq, sk->send_head->link3->h.seq))
             printk("INET: tcp.c: *** bug send_list out of order.\n");
 
         /*
          *    If our packet is before the ack sequence we can
          *    discard it as it's confirmed to have arrived the other end.
          */
-        // send_head->h.seq < ack+1 (丢弃此包)
+        // send_head->h.seq < ack+1 (已经得到应答, 丢弃此包)
         if (before(sk->send_head->h.seq, ack+1)) {
             struct sk_buff *oskb;
 
@@ -3419,7 +3429,8 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
                 else
                     sk->retransmits = 0;
             }
-              /*
+
+            /*
              * Note that we only reset backoff and rto in the
              * rtt recomputation code.  And that doesn't happen
              * if there were retransmissions in effect.  So the
@@ -3436,16 +3447,17 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
              */
 
             if (sk->packets_out > 0)
-                sk->packets_out--;
+                sk->packets_out--; // 减少发送出去未被应答的数据包数量
+
             /*
              *    Wake up the process, it can probably write more.
              */
             if (!sk->dead)
-                sk->write_space(sk);
+                sk->write_space(sk); // 更新socket的写缓存空间
 
             oskb = sk->send_head;
 
-            if (!(flag&2)) {    /* Not retransmitting */
+            if (!(flag&2)) { /* Not retransmitting */ // 如果没发生重发, 更新RTT和RTO
                 long m;
 
                 /*
@@ -3455,26 +3467,31 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
                  *    This is designed to be as fast as possible
                  *    m stands for "measurement".
                  */
-
-                m = jiffies - oskb->when;  /* RTT */
+                // 更新往返时间
+                m = jiffies - oskb->when;  /* RTT */ // 数据包往返时间
                 if (m <= 0)
-                    m=1;        /* IS THIS RIGHT FOR <0 ??? */
+                    m = 1;        /* IS THIS RIGHT FOR <0 ??? */
+
                 m -= (sk->rtt >> 3);    /* m is now error in rtt est */
                 sk->rtt += m;           /* rtt = 7/8 rtt + 1/8 new */
+
                 if (m < 0)
                     m = -m;        /* m is now abs(error) */
+
                 m -= (sk->mdev >> 2);   /* similar update on mdev */
                 sk->mdev += m;            /* mdev = 3/4 mdev + 1/4 new */
 
                 /*
                  *    Now update timeout.  Note that this removes any backoff.
                  */
-
+                // 更新重传超时时间
                 sk->rto = ((sk->rtt >> 2) + sk->mdev) >> 1;
-                if (sk->rto > 120*HZ)
-                    sk->rto = 120*HZ;
+                if (sk->rto > 120 * HZ)
+                    sk->rto = 120 * HZ;
+
                 if (sk->rto < 20)    /* Was 1*HZ - keep .2 as minimum cos of the BSD delayed acks */
                     sk->rto = 20;
+
                 sk->backoff = 0;
             }
 
@@ -3522,9 +3539,9 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      * and put it onto the xmit queue.
      */
     if (skb_peek(&sk->write_queue) != NULL) {
-        if (after(sk->window_seq+1, sk->write_queue.next->h.seq)
-            && (sk->retransmits == 0
-                || sk->ip_xmit_timeout != TIME_WRITE
+        if (after(sk->window_seq+1, sk->write_queue.next->h.seq) // 对端最大窗口能容纳当前数据包
+            && (sk->retransmits == 0                  // 没有重传
+                || sk->ip_xmit_timeout != TIME_WRITE  // 没有设置写超时定时器
                 || before(sk->write_queue.next->h.seq, sk->rcv_ack_seq + 1))
             && sk->packets_out < sk->cong_window)
         {
@@ -3532,17 +3549,17 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
              *    Add more data to the send queue.
              */
             flag |= 1;
-            tcp_write_xmit(sk);
+            tcp_write_xmit(sk); // 发送数据
         }
-        else if (before(sk->window_seq, sk->write_queue.next->h.seq) &&
-             sk->send_head == NULL &&
-             sk->ack_backlog == 0  &&
-             sk->state != TCP_TIME_WAIT)
+        else if (before(sk->window_seq, sk->write_queue.next->h.seq) // 对端最大窗口序列号小于当前数据包的序列号
+                 && sk->send_head == NULL                            // 重发队列为空
+                 && sk->ack_backlog == 0                             // 没有需要应答的数据
+                 && sk->state != TCP_TIME_WAIT)
         {
              /*
               *    Data to queue but no room.
               */
-            reset_xmit_timer(sk, TIME_PROBE0, sk->rto);
+            reset_xmit_timer(sk, TIME_PROBE0, sk->rto); // 启动窗口探测定时器
         }
     }
     else
@@ -3578,9 +3595,9 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
              *     Must check send_head, write_queue, and ack_backlog
              *     to determine which timeout to use.
              */
-            if (sk->send_head ||
-            	skb_peek(&sk->write_queue) != NULL ||
-            	sk->ack_backlog)
+            if (sk->send_head
+            	|| skb_peek(&sk->write_queue) != NULL
+            	|| sk->ack_backlog)
             {
                 reset_xmit_timer(sk, TIME_WRITE, sk->rto);
             } else if (sk->keepopen) {
@@ -4382,8 +4399,7 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
         sk->mtu = sk->user_mss;
     else if(rt != NULL && (rt->rt_flags&RTF_MTU))
         sk->mtu = rt->rt_mss;
-    else
-    {
+    else {
 #ifdef CONFIG_INET_SNARL
         if ((sk->saddr ^ sk->daddr) & default_mask(sk->saddr))
 #else
@@ -4393,11 +4409,11 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
         else
             sk->mtu = MAX_WINDOW;
     }
+
     /*
      *    but not bigger than device MTU
      */
-
-    if (sk->mtu <32)
+    if (sk->mtu < 32)
         sk->mtu = 32;    /* Sanity limit */
 
     sk->mtu = min(sk->mtu, dev->mtu - HEADER_SIZE);
@@ -4405,7 +4421,7 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
     /*
      *    Put in the TCP options to say MTU.
      */
-
+    // MTU选项
     ptr = (unsigned char *)(t1+1);
     ptr[0] = 2;
     ptr[1] = 4;
