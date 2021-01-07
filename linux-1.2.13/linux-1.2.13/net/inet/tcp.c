@@ -3538,7 +3538,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      * Maybe we can take some stuff off of the write queue,
      * and put it onto the xmit queue.
      */
-    if (skb_peek(&sk->write_queue) != NULL) {
+    if (skb_peek(&sk->write_queue) != NULL) { // 发送队列不为空
         if (after(sk->window_seq+1, sk->write_queue.next->h.seq) // 对端最大窗口能容纳当前数据包
             && (sk->retransmits == 0                  // 没有重传
                 || sk->ip_xmit_timeout != TIME_WRITE  // 没有设置写超时定时器
@@ -3564,6 +3564,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
     }
     else
     {
+        // 发送队列为空
         /*
          * from TIME_WAIT we stay in TIME_WAIT as long as we rx packets
          * from TCP_CLOSE we don't do anything
@@ -3585,6 +3586,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
              */
             reset_msl_timer(sk, TIME_CLOSE, TCP_TIMEWAIT_LEN);
             break;
+
         case TCP_CLOSE:
             /*
              * don't touch the timer.
@@ -3592,8 +3594,8 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
             break;
         default:
             /*
-             *     Must check send_head, write_queue, and ack_backlog
-             *     to determine which timeout to use.
+             * Must check send_head, write_queue, and ack_backlog
+             * to determine which timeout to use.
              */
             if (sk->send_head
             	|| skb_peek(&sk->write_queue) != NULL
@@ -3632,7 +3634,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      * Move to TCP_CLOSE on success.
      */
 
-    if (sk->state == TCP_LAST_ACK) {
+    if (sk->state == TCP_LAST_ACK) { // 关闭连接 (LAST_ACK -> CLOSE)
         if (!sk->dead)
             sk->state_change(sk);
 
@@ -3642,7 +3644,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
 
         if (sk->rcv_ack_seq == sk->write_seq) {
             flag |= 1;
-            tcp_set_state(sk,TCP_CLOSE);
+            tcp_set_state(sk, TCP_CLOSE);
             sk->shutdown = SHUTDOWN_MASK;
         }
     }
@@ -3654,7 +3656,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    SEND_SHUTDOWN but not RCV_SHUTDOWN as data can still be coming in.
      */
 
-    if (sk->state == TCP_FIN_WAIT1) {
+    if (sk->state == TCP_FIN_WAIT1) { // FIN_WAIT1 -> FIN_WAIT2
         if (!sk->dead)
             sk->state_change(sk);
 
@@ -3671,7 +3673,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    Move to TIME_WAIT
      */
 
-    if (sk->state == TCP_CLOSING) {
+    if (sk->state == TCP_CLOSING) { // CLOSING -> TIME_WAIT
         if (!sk->dead)
             sk->state_change(sk);
 
@@ -3685,19 +3687,19 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
      *    Final ack of a three way shake
      */
 
-    if (sk->state==TCP_SYN_RECV) {
+    if (sk->state == TCP_SYN_RECV) { // SYN_RECV -> ESTABLISHED
         tcp_set_state(sk, TCP_ESTABLISHED);
-        tcp_options(sk,th);
+        tcp_options(sk, th);
 
-        sk->dummy_th.dest=th->source;
+        sk->dummy_th.dest = th->source;
         sk->copied_seq = sk->acked_seq;
 
-        if(!sk->dead)
+        if (!sk->dead)
             sk->state_change(sk);
 
         if (sk->max_window == 0) {
             sk->max_window = 32;    /* Sanity check */
-            sk->mss=min(sk->max_window,sk->mtu);
+            sk->mss = min(sk->max_window, sk->mtu);
         }
     }
 
@@ -3733,10 +3735,10 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
     if (((!flag) || (flag & 4))
         && sk->send_head != NULL
         && (((flag&2) && sk->retransmits)
-        || (sk->send_head->when + sk->rto < jiffies)))
+           || (sk->send_head->when + sk->rto < jiffies)))
     {
         if (sk->send_head->when + sk->rto < jiffies)
-            tcp_retransmit(sk,0);
+            tcp_retransmit(sk, 0);
         else
         {
             tcp_do_retransmit(sk, 1);
@@ -3781,9 +3783,10 @@ static int tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
          * move to CLOSE_WAIT, tcp_data() already handled
          * sending the ack.
          */
-        tcp_set_state(sk,TCP_CLOSE_WAIT);
+        tcp_set_state(sk, TCP_CLOSE_WAIT);
         if (th->rst)
             sk->shutdown = SHUTDOWN_MASK;
+
         break;
 
     case TCP_CLOSE_WAIT:
@@ -3815,9 +3818,11 @@ static int tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
          * for handling this timeout.
          */
 
-        if(sk->ip_xmit_timeout != TIME_WRITE)
+        if (sk->ip_xmit_timeout != TIME_WRITE)
             reset_xmit_timer(sk, TIME_WRITE, sk->rto);
+
         tcp_set_state(sk,TCP_CLOSING);
+
         break;
 
     case TCP_FIN_WAIT2:
@@ -4241,8 +4246,7 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
    * and that it has something pending.
    */
 
-    if (sk->state != TCP_LISTEN) // 如果accept调用的不是listen状态的socket, 返回错误
-    {
+    if (sk->state != TCP_LISTEN) { // 如果accept调用的不是listen状态的socket, 返回错误
         sk->err = EINVAL;
         return(NULL);
     }
@@ -4293,7 +4297,7 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
 /*
  *    This will initiate an outgoing connection.
  */
-
+// connect系统调用的底层实现
 static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
 {
     struct sk_buff *buff;
@@ -4464,9 +4468,11 @@ extern __inline__ int tcp_sequence(struct sock *sk, struct tcphdr *th,
     next_seq = len - 4*th->doff;
     if (th->fin)
         next_seq++;
+
     /* if we have a zero window, we can't have any data in the packet.. */
     if (next_seq && !sk->window)
         goto ignore_it;
+
     next_seq += th->seq;
 
     /*
@@ -4479,6 +4485,7 @@ extern __inline__ int tcp_sequence(struct sock *sk, struct tcphdr *th,
     /* have we already seen all of this packet? */
     if (!after(next_seq+1, sk->acked_seq))
         goto ignore_it;
+
     /* or does it start beyond the window? */
     if (!before(th->seq, sk->acked_seq + sk->window + 1))
         goto ignore_it;
