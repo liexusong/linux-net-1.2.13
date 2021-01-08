@@ -3735,7 +3735,7 @@ extern __inline__ int tcp_ack(struct sock *sk, struct tcphdr *th,
     if (((!flag) || (flag & 4))
         && sk->send_head != NULL
         && (((flag&2) && sk->retransmits)
-           || (sk->send_head->when + sk->rto < jiffies)))
+           || (sk->send_head->when + sk->rto < jiffies))) // 已发出去的数据包的时间已经超过rto没得到应答
     {
         if (sk->send_head->when + sk->rto < jiffies)
             tcp_retransmit(sk, 0);
@@ -3858,7 +3858,7 @@ static int tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
  *    it will be have already been moved into it.  If there is no
  *    room, then we will just have to discard the packet.
  */
-
+// 处理接收到的数据
 extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
                                unsigned long saddr, unsigned short len)
 {
@@ -3869,7 +3869,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
     unsigned long shut_seq;
 
     th = skb->h.th;
-    skb->len = len -(th->doff*4);
+    skb->len = len - (th->doff*4); // 更新skb的数据大小
 
     /*
      *    The bytes in the receive read/assembly queue has increased. Needed for the
@@ -3878,14 +3878,16 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
 
     sk->bytes_rcv += skb->len;
 
-    if (skb->len == 0 && !th->fin) {
+    if (skb->len == 0 && !th->fin) { // 如果是一个没有数据的包并且FIN标志为0
         /*
          * Don't want to keep passing ack's back and forth.
          * (someone sent us dataless, boring frame)
          */
         if (!th->ack)
             tcp_send_ack(sk->sent_seq, sk->acked_seq, sk, th, saddr);
+
         kfree_skb(skb, FREE_READ);
+
         return(0);
     }
 
@@ -3895,7 +3897,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
 
 #ifndef TCP_DONT_RST_SHUTDOWN
 
-    if (sk->shutdown & RCV_SHUTDOWN) {
+    if (sk->shutdown & RCV_SHUTDOWN) { // 如果接收端已经关闭
         /*
          *    FIXME: BSD has some magic to avoid sending resets to
          *    broken 4.2 BSD keepalives. Much to my surprise a few non
@@ -3918,7 +3920,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
 
             shut_seq = sk->acked_seq + 1;    /* Last byte */
 
-            if (after(new_seq, shut_seq)) {
+            if (after(new_seq, shut_seq)) { // 如果接收到的数据最大seq大于当前最大接收到的seq
                 if (sk->debug)
                     printk("Data arrived on %p after close [Data right edge %lX, Socket shut on %lX] %d\n",
                            sk, new_seq, shut_seq, sk->blog);
@@ -3951,20 +3953,20 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
      *     forwards from the first hole based upon real traffic patterns.]
      *
      */
-
+    // 如果接收队列为空, 那么直接把数据包skb添加到接受队列首部
     if (skb_peek(&sk->receive_queue) == NULL) {  /* Empty queue is easy case */
-        skb_queue_head(&sk->receive_queue,skb);
+        skb_queue_head(&sk->receive_queue, skb);
         skb1 = NULL;
     }
     else
     {
-        for(skb1 = sk->receive_queue.prev; ; skb1 = skb1->prev) {
+        for (skb1 = sk->receive_queue.prev; ; skb1 = skb1->prev) {
             if(sk->debug) {
                 printk("skb1=%p :", skb1);
                 printk("skb1->h.th->seq = %ld: ", skb1->h.th->seq);
                 printk("skb->h.th->seq = %ld\n",skb->h.th->seq);
-                printk("copied_seq = %ld acked_seq = %ld\n", sk->copied_seq,
-                        sk->acked_seq);
+                printk("copied_seq = %ld acked_seq = %ld\n",
+                       sk->copied_seq, sk->acked_seq);
             }
 
             /*
@@ -3974,22 +3976,23 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
              *    discard the previous frame (safe as sk->inuse is set) and put
              *    the new one in its place.
              */
-
-            if (th->seq==skb1->h.th->seq && skb->len>= skb1->len) {
+            // 数据包重复了, 把旧的数据包释放掉
+            // 这里应该有bug吧, 如果 skb->len < skb1->len 那么就会跳过这个判断
+            if (th->seq == skb1->h.th->seq && skb->len >= skb1->len) {
                 skb_append(skb1,skb);
                 skb_unlink(skb1);
                 kfree_skb(skb1,FREE_READ);
-                dup_dumped=1;
-                skb1=NULL;
+                dup_dumped = 1;
+                skb1 = NULL;
                 break;
             }
 
             /*
              *    Found where it fits
              */
-
+            // 如果接收到的新数据包seq在skb1的seq之后, 把skb添加到skb1之后
             if (after(th->seq+1, skb1->h.th->seq)) {
-                skb_append(skb1,skb);
+                skb_append(skb1, skb);
                 break;
             }
 
@@ -4001,13 +4004,13 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
                 break;
             }
         }
-      }
+    }
 
     /*
      *    Figure out what the ack value for this frame is
      */
 
-     th->ack_seq = th->seq + skb->len;
+     th->ack_seq = th->seq + skb->len; // 更新应答序列号
 
      if (th->syn) th->ack_seq++;
      if (th->fin) th->ack_seq++;
@@ -4023,19 +4026,23 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
      *    queue.
      */
 
+#if 0 // 不知道这段代码有什么意图
     if ((!dup_dumped && (skb1 == NULL || skb1->acked))
         || before(th->seq, sk->acked_seq+1))
     {
-        if (before(th->seq, sk->acked_seq+1)) {
+#endif
+
+        if (before(th->seq, sk->acked_seq+1)) { // 如果新接收到的数据包序列号是连续的
             int newwindow;
 
-            if (after(th->ack_seq, sk->acked_seq)) {
+            if (after(th->ack_seq, sk->acked_seq)) { // 新接收到的数据包有未应答的数据
                 newwindow = sk->window-(th->ack_seq - sk->acked_seq);
                 if (newwindow < 0)
                     newwindow = 0;
-                sk->window = newwindow;
+                sk->window = newwindow; // 更新本地窗口大小
                 sk->acked_seq = th->ack_seq;
             }
+
             skb->acked = 1;
 
             /*
@@ -4046,19 +4053,21 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
                 tcp_fin(skb,sk,skb->h.th);
             }
 
-            for(skb2 = skb->next;
-                skb2 != (struct sk_buff *)&sk->receive_queue;
-                skb2 = skb2->next)
+            // 这里主要寻找比新数据包更大的未应答数据包
+
+            for (skb2 = skb->next;
+                 skb2 != (struct sk_buff *)&sk->receive_queue;
+                 skb2 = skb2->next)
             {
-                if (before(skb2->h.th->seq, sk->acked_seq+1)) {
-                    if (after(skb2->h.th->ack_seq, sk->acked_seq)) {
-                        newwindow = sk->window -
-                         (skb2->h.th->ack_seq - sk->acked_seq);
+                if (before(skb2->h.th->seq, sk->acked_seq+1)) {      // 表示此数据包连续的(不存在断裂)
+                    if (after(skb2->h.th->ack_seq, sk->acked_seq)) { // 表示这个数据包还没应答
+                        newwindow = sk->window - (skb2->h.th->ack_seq - sk->acked_seq);
                         if (newwindow < 0)
                             newwindow = 0;
                         sk->window = newwindow;
                         sk->acked_seq = skb2->h.th->ack_seq;
                     }
+
                     skb2->acked = 1;
                     /*
                      *     When we ack the fin, we do
@@ -4083,10 +4092,12 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
              *    This also takes care of updating the window.
              *    This if statement needs to be simplified.
              */
-            if (!sk->delay_acks
+            if (!sk->delay_acks      // 是否采用延时应答
                 || sk->ack_backlog >= sk->max_ack_backlog
-                || sk->bytes_rcv > sk->max_unacked || th->fin) {
-                /* tcp_send_ack(sk->sent_seq, sk->acked_seq,sk,th, saddr); */
+                || sk->bytes_rcv > sk->max_unacked
+                || th->fin)
+            {
+                /* tcp_send_ack(sk->sent_seq, sk->acked_seq, sk, th, saddr); */
             }
             else
             {
@@ -4096,7 +4107,10 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
                 reset_xmit_timer(sk, TIME_WRITE, TCP_ACK_TIME);
             }
         }
+
+#if 0
     }
+#endif
 
     /*
      *    If we've missed a packet, send an ack.
@@ -4130,6 +4144,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
             skb_unlink(skb1);
             kfree_skb(skb1, FREE_READ);
         }
+
         tcp_send_ack(sk->sent_seq, sk->acked_seq, sk, th, saddr);
         sk->ack_backlog++;
         reset_xmit_timer(sk, TIME_WRITE, TCP_ACK_TIME);
@@ -4144,7 +4159,7 @@ extern __inline__ int tcp_data(struct sk_buff *skb, struct sock *sk,
      */
 
     if (!sk->dead) {
-        if(sk->debug)
+        if (sk->debug)
             printk("Data wakeup.\n");
         sk->data_ready(sk,0);
     }
