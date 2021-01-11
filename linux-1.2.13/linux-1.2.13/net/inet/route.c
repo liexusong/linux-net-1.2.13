@@ -82,7 +82,8 @@ static void rt_del(unsigned long dst, char *devname)
 
     save_flags(flags);
     cli();
-    while((r = *rp) != NULL) {
+
+    while ((r = *rp) != NULL) {
         /* Make sure both the destination and the device match */
         if (r->rt_dst != dst
             || (devname != NULL && strcmp((r->rt_dev)->name,devname) != 0))
@@ -119,8 +120,10 @@ void ip_rt_flush(struct device *dev)
     unsigned long flags;
 
     rp = &rt_base;
+
     save_flags(flags);
     cli();
+
     while ((r = *rp) != NULL) {
         if (r->rt_dev != dev) {
             rp = &r->rt_next;
@@ -134,6 +137,7 @@ void ip_rt_flush(struct device *dev)
 
         kfree_s(r, sizeof(struct rtable));
     }
+
     restore_flags(flags);
 }
 
@@ -148,10 +152,13 @@ void ip_rt_flush(struct device *dev)
 static inline unsigned long default_mask(unsigned long dst)
 {
     dst = ntohl(dst);
+
     if (IN_CLASSA(dst))
         return htonl(IN_CLASSA_NET);
+
     if (IN_CLASSB(dst))
         return htonl(IN_CLASSB_NET);
+
     return htonl(IN_CLASSC_NET);
 }
 
@@ -166,9 +173,12 @@ static unsigned long guess_mask(unsigned long dst, struct device * dev)
 
     if (!dst)
         return 0;
+
     mask = default_mask(dst);
+
     if ((dst ^ dev->pa_addr) & mask)
         return mask;
+
     return dev->pa_mask;
 }
 
@@ -185,14 +195,15 @@ static inline struct device *get_gw_dev(unsigned long gw)
         if (!rt)
             return NULL;
 
-        if ((gw ^ rt->rt_dst) & rt->rt_mask)
+        if ((gw ^ rt->rt_dst) & rt->rt_mask) // 跳过跟网关地址不同属于一个子网的路由
             continue;
 
         /*
-         *    Gateways behind gateways are a no-no
+         * Gateways behind gateways are a no-no
          */
-        if (rt->rt_flags & RTF_GATEWAY)
+        if (rt->rt_flags & RTF_GATEWAY) // 路由不能是一个网关
             return NULL;
+
         return rt->rt_dev;
     }
 }
@@ -222,7 +233,7 @@ void ip_rt_add(
      *    A host is a unique machine and has no network bits.
      */
 
-    if (flags & RTF_HOST) {
+    if (flags & RTF_HOST) { // 如果路由是到一个主机IP, 子掩码就应该使用全部
         mask = 0xffffffff;
     }
 
@@ -241,6 +252,7 @@ void ip_rt_add(
         }
         else
             mask = guess_mask(dst, dev);
+
         dst &= mask;
     }
 
@@ -251,11 +263,11 @@ void ip_rt_add(
     if (gw == dev->pa_addr)
         flags &= ~RTF_GATEWAY;
 
-    if (flags & RTF_GATEWAY) { // 如果路由是一个网关
+    if (flags & RTF_GATEWAY) { // 如果路由需要一个网关
         /*
-         *    Don't try to add a gateway we can't reach..
+         * Don't try to add a gateway we can't reach..
          */
-        if (dev != get_gw_dev(gw))
+        if (dev != get_gw_dev(gw)) // 因为网关一定要一个转发设备
             return;
 
         flags |= RTF_GATEWAY;
@@ -358,9 +370,12 @@ static inline int bad_mask(unsigned long mask, unsigned long addr)
 {
     if (addr & (mask = ~mask))
         return 1;
+
     mask = ntohl(mask);
+
     if (mask & (mask+1))
         return 1;
+
     return 0;
 }
 
@@ -382,6 +397,7 @@ static int rt_new(struct rtentry *r)
         err = getname(devname, &devname);
         if (err)
             return err;
+
         dev = dev_get(devname); // 根据设备名获取设备对象
         putname(devname);
         if (!dev)
@@ -500,14 +516,15 @@ static int rt_kill(struct rtentry *r)
 int rt_get_info(char *buffer, char **start, off_t offset, int length)
 {
     struct rtable *r;
-    int len=0;
-    off_t pos=0;
-    off_t begin=0;
+    int len = 0;
+    off_t pos = 0;
+    off_t begin = 0;
     int size;
 
     len += sprintf(buffer,
-         "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\n");
-    pos=len;
+                   "Iface\tDestination\tGateway \tFlags\t"
+                   "RefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\n");
+    pos = len;
 
     /*
      *    This isn't quite right -- r->rt_dst is a struct!
@@ -527,7 +544,7 @@ int rt_get_info(char *buffer, char **start, off_t offset, int length)
             begin = pos;
         }
 
-        if(pos>offset+length)
+        if (pos > offset+length)
             break;
       }
 
@@ -558,7 +575,9 @@ struct rtable *ip_rt_route(unsigned long daddr, struct options *opt, unsigned lo
     struct rtable *rt;
 
     for (rt = rt_base; rt != NULL || early_out ; rt = rt->rt_next) {
-        if (!((rt->rt_dst ^ daddr) & rt->rt_mask)) // 相当于: daddr & rt->rt_mask == rt->rt_dst & rt->rt_mask
+        // 相当于: daddr & rt->rt_mask == rt->rt_dst & rt->rt_mask
+        // 就是找到匹配的路由
+        if (!((rt->rt_dst ^ daddr) & rt->rt_mask))
             break;
 
         /*
@@ -572,7 +591,7 @@ struct rtable *ip_rt_route(unsigned long daddr, struct options *opt, unsigned lo
             break;
     }
 
-    if(src_addr != NULL)
+    if (src_addr != NULL)
         *src_addr = rt->rt_dev->pa_addr; // 设备的IP
 
     if (daddr == rt->rt_dev->pa_addr) {
@@ -600,7 +619,8 @@ struct rtable * ip_rt_local(unsigned long daddr, struct options *opt, unsigned l
             continue;
 
         // 匹配成功
-        if (!((rt->rt_dst ^ daddr) & rt->rt_mask)) /* 相当于: rt->rt_dst & rt->rt_mask == daddr & rt->rt_mask */
+        /* 相当于: rt->rt_dst & rt->rt_mask == daddr & rt->rt_mask */
+        if (!((rt->rt_dst ^ daddr) & rt->rt_mask))
             break;
 
         /*
