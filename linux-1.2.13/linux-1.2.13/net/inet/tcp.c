@@ -4250,7 +4250,7 @@ extern __inline__ int tcp_urg(struct sock *sk, struct tcphdr *th,
 /*
  *    This will accept the next outstanding connection.
  */
-
+// accept() 系统调用的底层实现
 static struct sock *tcp_accept(struct sock *sk, int flags)
 {
     struct sock *newsk;
@@ -4312,11 +4312,11 @@ static struct sock *tcp_accept(struct sock *sk, int flags)
 /*
  *    This will initiate an outgoing connection.
  */
-// connect系统调用的底层实现
+// connect() 系统调用的底层实现
 static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
 {
     struct sk_buff *buff;
-    struct device *dev=NULL;
+    struct device *dev = NULL;
     unsigned char *ptr;
     int tmp;
     int atype;
@@ -4337,8 +4337,8 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
        *    connect() to INADDR_ANY means loopback (BSD'ism).
        */
 
-      if (usin->sin_addr.s_addr==INADDR_ANY)
-        usin->sin_addr.s_addr=ip_my_addr();
+      if (usin->sin_addr.s_addr == INADDR_ANY)
+        usin->sin_addr.s_addr = ip_my_addr(); // 如果连接的是0.0.0.0, 那么设置为本地地址
 
     /*
      *    Don't want a TCP connection going to a broadcast address
@@ -4349,12 +4349,12 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
         return -ENETUNREACH;
 
     sk->inuse = 1;
-    sk->daddr = usin->sin_addr.s_addr;
+    sk->daddr = usin->sin_addr.s_addr;  // 目标IP地址
     sk->write_seq = tcp_init_seq();
     sk->window_seq = sk->write_seq;
     sk->rcv_ack_seq = sk->write_seq -1;
     sk->err = 0;
-    sk->dummy_th.dest = usin->sin_port;
+    sk->dummy_th.dest = usin->sin_port; // 目标端口
     release_sock(sk);
 
     buff = sk->prot->wmalloc(sk,MAX_SYN_SIZE,0, GFP_KERNEL);
@@ -4380,7 +4380,8 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
     /*
      *    We need to build the routing stuff from the things saved in skb.
      */
-
+    // 构建IP头部和MAC头部
+    // 这里会获取发送设备对象dev
     tmp = sk->prot->build_header(buff, sk->saddr, sk->daddr,
                                  &dev, IPPROTO_TCP, NULL,
                                  MAX_SYN_SIZE, sk->ip_tos, sk->ip_ttl);
@@ -4407,12 +4408,13 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
     t1->syn = 1;
     t1->urg_ptr = 0;
     t1->doff = 6;
+
     /* use 512 or whatever user asked for */
 
-    if(rt!=NULL && (rt->rt_flags&RTF_WINDOW))
-        sk->window_clamp=rt->rt_window;
+    if (rt != NULL && (rt->rt_flags & RTF_WINDOW))
+        sk->window_clamp = rt->rt_window;
     else
-        sk->window_clamp=0;
+        sk->window_clamp = 0;
 
     if (sk->user_mss)
         sk->mtu = sk->user_mss;
@@ -4454,11 +4456,12 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
      */
 
     tcp_set_state(sk,TCP_SYN_SENT);
+
     sk->rto = TCP_TIMEOUT_INIT;
 #if 0 /* we already did this */
     init_timer(&sk->retransmit_timer);
 #endif
-    sk->retransmit_timer.function=&retransmit_timer;
+    sk->retransmit_timer.function = &retransmit_timer;
     sk->retransmit_timer.data = (unsigned long)sk;
     reset_xmit_timer(sk, TIME_WRITE, sk->rto);    /* Timer for repeating the SYN until an answer */
     sk->retransmits = TCP_SYN_RETRIES;
@@ -4469,11 +4472,13 @@ static int tcp_connect(struct sock *sk, struct sockaddr_in *usin, int addr_len)
     tcp_statistics.TcpOutSegs++;
 
     release_sock(sk);
+
     return(0);
 }
 
 
 /* This functions checks to see if the tcp header is actually acceptable. */
+// 对数据包的序列号合法性进行判断
 extern __inline__ int tcp_sequence(struct sock *sk, struct tcphdr *th,
                                    short len, struct options *opt,
                                    unsigned long saddr, struct device *dev)
@@ -4498,11 +4503,11 @@ extern __inline__ int tcp_sequence(struct sock *sk, struct tcphdr *th,
      */
 
     /* have we already seen all of this packet? */
-    if (!after(next_seq+1, sk->acked_seq))
+    if (!after(next_seq+1, sk->acked_seq)) // 这个数据包已经被应答过
         goto ignore_it;
 
     /* or does it start beyond the window? */
-    if (!before(th->seq, sk->acked_seq + sk->window + 1))
+    if (!before(th->seq, sk->acked_seq + sk->window + 1)) // 超出了我们的窗口
         goto ignore_it;
 
     /* ok, at least part of this packet would seem interesting.. */
@@ -4518,14 +4523,15 @@ ignore_it:
      *    are just killing the bogus remote connection then we will
      *    connect again and it will work (with luck).
      */
-
+    // 如果在三次握手阶段
     if (sk->state == TCP_SYN_SENT || sk->state == TCP_SYN_RECV) {
-        tcp_reset(sk->saddr,sk->daddr,th,sk->prot,NULL,dev, sk->ip_tos,sk->ip_ttl);
+        tcp_reset(sk->saddr, sk->daddr, th, sk->prot, NULL, dev, sk->ip_tos, sk->ip_ttl);
         return 1;
     }
 
     /* Try to resync things. */
     tcp_send_ack(sk->sent_seq, sk->acked_seq, sk, th, saddr);
+
     return 0;
 }
 
@@ -4537,23 +4543,26 @@ static int tcp_std_reset(struct sock *sk, struct sk_buff *skb)
 {
     sk->zapped = 1;
     sk->err = ECONNRESET;
+
     if (sk->state == TCP_SYN_SENT)
         sk->err = ECONNREFUSED;
+
     if (sk->state == TCP_CLOSE_WAIT)
         sk->err = EPIPE;
+
 #ifdef TCP_DO_RFC1337
     /*
      *    Time wait assassination protection [RFC1337]
      */
-    if(sk->state!=TCP_TIME_WAIT)
-    {
-        tcp_set_state(sk,TCP_CLOSE);
+    if (sk->state!=TCP_TIME_WAIT) {
+        tcp_set_state(sk, TCP_CLOSE);
         sk->shutdown = SHUTDOWN_MASK;
     }
 #else
-    tcp_set_state(sk,TCP_CLOSE);
+    tcp_set_state(sk, TCP_CLOSE);
     sk->shutdown = SHUTDOWN_MASK;
 #endif
+
     if (!sk->dead)
         sk->state_change(sk);
     kfree_skb(skb, FREE_READ);
@@ -4611,7 +4620,7 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
     if (sk != NULL && (sk->zapped || sk->state == TCP_CLOSE))
         sk = NULL;
 
-    if (!redo) { // 从 ip_rcv() 调用时, 此参数为0
+    if (!redo) { // 是否从第一次调用
         if (tcp_check(th, len, saddr, daddr)) { // 校验校验和
             skb->sk = NULL;
             kfree_skb(skb,FREE_READ);
@@ -4843,11 +4852,11 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
 #define BSD_TIME_WAIT
 #ifdef BSD_TIME_WAIT
 
-        if (sk->state == TCP_TIME_WAIT &&
-            th->syn &&
-            sk->dead &&
-            after(th->seq, sk->acked_seq) &&
-            !th->rst)
+        if (sk->state == TCP_TIME_WAIT        // 1. 是否处于TIME_WAIT状态?
+            && th->syn                        // 2. 是否SYN包(就是请求连接)
+            && sk->dead                       // 3. Socket处于关闭状态
+            && after(th->seq, sk->acked_seq)  // 4. 当前包的序列号比之前的大
+            && !th->rst)                      // 5. 不是RESET包
         {
             long seq = sk->write_seq;
 
@@ -4864,12 +4873,14 @@ int tcp_rcv(struct sk_buff *skb, struct device *dev,
             sk->shutdown = SHUTDOWN_MASK;
             release_sock(sk);
 
+            // 获取处于LISTEN状态的socket
             sk = get_sock(&tcp_prot, th->dest, saddr, th->source, daddr);
             if (sk && sk->state == TCP_LISTEN) {
-                sk->inuse=1;
+                sk->inuse = 1;
                 skb->sk = sk;
                 sk->rmem_alloc += skb->mem_len;
-                tcp_conn_request(sk, skb, daddr, saddr,opt, dev,seq+128000);
+                // 处理连接
+                tcp_conn_request(sk, skb, daddr, saddr, opt, dev, seq+128000);
                 release_sock(sk);
                 return 0;
             }

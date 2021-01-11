@@ -252,7 +252,7 @@ int ip_build_header(
      */
 
 #ifdef CONFIG_INET_MULTICAST
-    if (MULTICAST(daddr) && *dev==NULL && skb->sk && *skb->sk->ip_mc_name)
+    if (MULTICAST(daddr) && *dev == NULL && skb->sk && *skb->sk->ip_mc_name)
         *dev = dev_get(skb->sk->ip_mc_name);
 #endif
 
